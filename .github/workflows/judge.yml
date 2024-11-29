@@ -45,6 +45,7 @@ jobs:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
           
           with open('encrypted_code', 'rb') as f:
+              print(f.read())
               encrypted = base64.b64decode(f.read())
           
           decrypted = private_key.decrypt(
