@@ -44,7 +44,7 @@ jobs:
           with open('private.pem', 'rb') as f:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
           
-          with open('encrypted_code', 'rb') as f:
+          with open('encrypted_code', 'r') as f:
               print(f.read())
               encrypted = base64.b64decode(f.read())
           
@@ -59,6 +59,7 @@ jobs:
           
           with open('solution.cpp', 'wb') as f:
               f.write(decrypted)
+              print(decrypted)
           "
           
           # 运行评测
