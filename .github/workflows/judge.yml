@@ -59,11 +59,12 @@ jobs:
           
           with open('solution.cpp', 'wb') as f:
               f.write(decrypted)
-              print(decrypted)
+              #print(decrypted)
           "
           
           # 运行评测
           RESULT=$(python3 judge.py private.pem "problems/$PROBLEM_NAME" solution.cpp)
           
           # 回复结果
-          gh issue comment ${{ github.event.issue.number }} "$RESULT"
+          gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
+          gh issue close ${{ github.event.issue.number }}
