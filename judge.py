@@ -48,7 +48,7 @@ def judge(private_key_path, problem_dir, solution_file):
         return "Compilation Error"
     
     results = []
-    for filename in sorted(os.listdir(problem_dir)):
+    for filename in sorted(os.listdir(problem_dir), key=lambda x: int(x.split('.')[0])):
         if filename.endswith('.in'):
             testcase = filename[:-3]
             input_file = os.path.join(problem_dir, filename)
