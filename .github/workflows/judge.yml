@@ -1,0 +1,67 @@
+name: OJ Judge
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.title, '评测')
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++
+          pip install cryptography
+          
+      - name: Decrypt and Judge
+        env:
+          PRIVATE_KEY: ${{ secrets.RSA_PRIVATE_KEY }}
+        run: |
+          # 解析题目名称
+          PROBLEM_NAME=$(echo "${{ github.event.issue.title }}" | sed 's/评测//')
+          
+          # 保存私钥
+          echo "$PRIVATE_KEY" > private.pem
+          
+          # 解密提交的代码
+          echo "${{ github.event.issue.body }}" | base64 -d > encrypted_code
+          python3 -c "
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          from cryptography.hazmat.primitives import hashes
+          import base64
+          
+          with open('private.pem', 'rb') as f:
+              private_key = serialization.load_pem_private_key(f.read(), password=None)
+          
+          with open('encrypted_code', 'rb') as f:
+              encrypted = base64.b64decode(f.read())
+          
+          decrypted = private_key.decrypt(
+              encrypted,
+              padding.OAEP(
+                  mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                  algorithm=hashes.SHA256(),
+                  label=None
+              )
+          )
+          
+          with open('solution.cpp', 'wb') as f:
+              f.write(decrypted)
+          "
+          
+          # 运行评测
+          RESULT=$(python3 judge.py private.pem "problems/$PROBLEM_NAME" solution.cpp)
+          
+          # 回复结果
+          gh issue comment ${{ github.event.issue.number }} "$RESULT"
