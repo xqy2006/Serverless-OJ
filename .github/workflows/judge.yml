@@ -26,6 +26,7 @@ jobs:
       - name: Decrypt and Judge
         env:
           PRIVATE_KEY: ${{ secrets.RSA_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # 解析题目名称
           PROBLEM_NAME=$(echo "${{ github.event.issue.title }}" | sed 's/评测//')
