@@ -34,7 +34,7 @@ jobs:
           echo "$PRIVATE_KEY" > private.pem
           
           # 解密提交的代码
-          echo "${{ github.event.issue.body }}" > encrypted_code
+          echo "${{ github.event.issue.body }}" | base64 -d > encrypted_code
           python3 -c "
           from cryptography.hazmat.primitives import serialization
           from cryptography.hazmat.primitives.asymmetric import padding
@@ -44,9 +44,9 @@ jobs:
           with open('private.pem', 'rb') as f:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
           
-          with open('encrypted_code', 'r') as f:
-              print(f.read())
-              encrypted = base64.b64decode(f.read())
+          with open('encrypted_code', 'rb') as f:
+              #print(f.read())
+              encrypted = f.read()
           
           decrypted = private_key.decrypt(
               encrypted,
