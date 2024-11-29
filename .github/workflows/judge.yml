@@ -34,7 +34,7 @@ jobs:
           echo "$PRIVATE_KEY" > private.pem
           
           # 解密提交的代码
-          echo "${{ github.event.issue.body }}" | base64 -d > encrypted_code
+          echo "${{ github.event.issue.body }}" > encrypted_code
           python3 -c "
           from cryptography.hazmat.primitives import serialization
           from cryptography.hazmat.primitives.asymmetric import padding
