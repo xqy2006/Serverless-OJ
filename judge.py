@@ -75,7 +75,6 @@ def judge(private_key_path, problem_dir, solution_file):
             else:
                 results.append(f'测试点 {testcase}: WA')
     
-    # 确定最终状态
     if ac_cases == total_cases:
         status = "AC"
     elif ac_cases > 0:
@@ -95,6 +94,5 @@ if __name__ == '__main__':
     
     result, status = judge(sys.argv[1], sys.argv[2], sys.argv[3])
     print(result)
-    # 将状态写入文件而不是打印到标准输出
     with open('judge_status.txt', 'w') as f:
         f.write(status)
