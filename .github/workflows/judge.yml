@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y g++
-          pip install cryptography
+          pip install cryptography psutil
           
       - name: Decrypt and Judge
         id: judge
@@ -80,7 +80,7 @@ jobs:
           
           # 为不同的标签设置不同的颜色
           create_label_if_not_exists "AC" "0e8a16"            # 绿色
-          create_label_if_not_exists "Partially AC" "1e90ff"  # 蓝色
+          create_label_if_not_exists "MLE" "1e90ff"  # 蓝色
           create_label_if_not_exists "WA" "d93f0b"           # 红色
           create_label_if_not_exists "TLE" "ff69b4"          # 粉色
           create_label_if_not_exists "CE" "808080"           # 灰色
