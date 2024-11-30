@@ -79,7 +79,8 @@ def judge(private_key_path, problem_dir, solution_file):
     if ac_cases == total_cases:
         status = "AC"
     elif ac_cases > 0:
-        status = "Partially AC"
+        #status = "Partially AC"
+        status = "WA"
     elif has_tle:
         status = "TLE"
     else:
