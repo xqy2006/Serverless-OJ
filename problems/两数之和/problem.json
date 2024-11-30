@@ -5,5 +5,5 @@
   "difficulty": "easy",
   "description": "给定两个整数，输出两数之和",
   "timeLimit": 1000,
-  "memoryLimit": 256
+  "memoryLimit": 1
 }
