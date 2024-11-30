@@ -79,7 +79,6 @@ jobs:
           }
           
           # 为不同的标签设置不同的颜色
-          create_label_if_not_exists "$PROBLEM_NAME" "fbca04"  # 黄色
           create_label_if_not_exists "AC" "0e8a16"            # 绿色
           create_label_if_not_exists "Partially AC" "1e90ff"  # 蓝色
           create_label_if_not_exists "WA" "d93f0b"           # 红色
@@ -87,7 +86,6 @@ jobs:
           create_label_if_not_exists "CE" "808080"           # 灰色
           
           # 添加标签
-          gh issue edit ${{ github.event.issue.number }} --add-label "$PROBLEM_NAME"
           gh issue edit ${{ github.event.issue.number }} --add-label "$STATUS"
           
           gh issue close ${{ github.event.issue.number }}
