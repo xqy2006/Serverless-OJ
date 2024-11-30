@@ -7,6 +7,7 @@ import psutil
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
+import tempfile
 
 def load_problem_config(problem_dir):
     config_path = os.path.join(problem_dir, 'problem.json')
@@ -29,11 +30,16 @@ def normalize_text(text):
     lines = text.decode().strip().split('\n')
     return '\n'.join(line.rstrip() for line in lines)
 
-def run_testcase(exe_path, input_file, time_limit, memory_limit):
+def run_testcase(exe_path, input_data, time_limit, memory_limit):
     try:
+        # 创建临时文件来存储解密后的输入数据
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as temp_input:
+            temp_input.write(input_data)
+            temp_input_path = temp_input.name
+
         proc = subprocess.Popen(
             [exe_path],
-            stdin=open(input_file, 'rb'),
+            stdin=open(temp_input_path, 'rb'),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -43,7 +49,6 @@ def run_testcase(exe_path, input_file, time_limit, memory_limit):
         
         while proc.poll() is None:
             try:
-                # 获取内存使用（MB）
                 memory_info = psutil_proc.memory_info()
                 memory_used = memory_info.rss / 1024 / 1024  # Convert to MB
                 max_memory_used = max(max_memory_used, memory_used)
@@ -64,9 +69,15 @@ def run_testcase(exe_path, input_file, time_limit, memory_limit):
             
     except Exception as e:
         return False, None, str(e)
+    finally:
+        # 清理临时文件
+        if 'temp_input_path' in locals():
+            try:
+                os.unlink(temp_input_path)
+            except:
+                pass
 
 def judge(private_key_path, problem_dir, solution_file):
-    # 加载题目配置
     config = load_problem_config(problem_dir)
     time_limit = config.get('timeLimit', 1000)  # 默认1000ms
     memory_limit = config.get('memoryLimit', 256)  # 默认256MB
@@ -89,16 +100,21 @@ def judge(private_key_path, problem_dir, solution_file):
     has_mle = False
     
     for filename in sorted(os.listdir(problem_dir)):
-        if filename.endswith('.in'):
+        if filename.endswith('.in.enc'):
             total_cases += 1
-            testcase = filename[:-3]
+            testcase = filename[:-7]  # 从 .in.enc 变为基础文件名
             input_file = os.path.join(problem_dir, filename)
-            encrypted_file = os.path.join(problem_dir, f'{testcase}.out.enc')
+            output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
             
-            with open(encrypted_file, 'rb') as f:
+            # 解密输入文件
+            with open(input_file, 'rb') as f:
+                input_data = decrypt_data(private_key, f.read())
+            
+            # 解密输出文件
+            with open(output_file, 'rb') as f:
                 expected_output = decrypt_data(private_key, f.read())
             
-            success, actual_output, error = run_testcase(exe_path, input_file, time_limit, memory_limit)
+            success, actual_output, error = run_testcase(exe_path, input_data, time_limit, memory_limit)
             
             if error:
                 if "Time Limit Exceeded" in error:
