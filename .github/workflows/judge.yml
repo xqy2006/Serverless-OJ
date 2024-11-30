@@ -69,7 +69,7 @@ jobs:
           gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
           
           # 获取状态
-          STATUS=$(echo "$RESULT" | grep "::set-output" | cut -d':' -f4)
+          STATUS=$(cat judge_status.txt)
           
           # 确保标签存在
           create_label_if_not_exists() {
