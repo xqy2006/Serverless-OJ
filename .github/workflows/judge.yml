@@ -24,6 +24,7 @@ jobs:
           pip install cryptography
           
       - name: Decrypt and Judge
+        id: judge
         env:
           PRIVATE_KEY: ${{ secrets.RSA_PRIVATE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,7 +47,6 @@ jobs:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
           
           with open('encrypted_code', 'rb') as f:
-              #print(f.read())
               encrypted = f.read()
           
           decrypted = private_key.decrypt(
@@ -60,7 +60,6 @@ jobs:
           
           with open('solution.cpp', 'wb') as f:
               f.write(decrypted)
-              #print(decrypted)
           "
           
           # 运行评测
@@ -68,4 +67,9 @@ jobs:
           
           # 回复结果
           gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
+          
+          # 添加标签
+          gh issue edit ${{ github.event.issue.number }} --add-label "$PROBLEM_NAME"
+          gh issue edit ${{ github.event.issue.number }} --add-label "$(echo "$RESULT" | grep "::set-output" | cut -d':' -f4)"
+          
           gh issue close ${{ github.event.issue.number }}
