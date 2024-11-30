@@ -94,4 +94,6 @@ if __name__ == '__main__':
     
     result, status = judge(sys.argv[1], sys.argv[2], sys.argv[3])
     print(result)
-    print(f"::set-output name=status::{status}")
+    # 将状态写入文件而不是打印到标准输出
+    with open('judge_status.txt', 'w') as f:
+        f.write(status)
