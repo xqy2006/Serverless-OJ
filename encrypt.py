@@ -25,7 +25,7 @@ def process_directory(problem_dir):
             f.read(),
         )
     for filename in os.listdir(problem_dir):
-        if filename.endswith('.out'):
+        if filename.endswith('.out') or filename.endswith('.in'):
             input_file = os.path.join(problem_dir, filename)
             output_file = input_file + '.enc'
             print(f'Encrypting {input_file}...')
@@ -34,6 +34,6 @@ def process_directory(problem_dir):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) != 2:
-        print("Usage: python encrypt_outputs.py <problem_directory>")
+        print("Usage: python encrypt.py <problem_directory>")
         sys.exit(1)
     process_directory(sys.argv[1])
