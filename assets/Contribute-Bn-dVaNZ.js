@@ -1,4 +1,4 @@
-import{m as d}from"./github-markdown-BOpQ1pHb.js";import{_,e as i,f as p,c as u,a as o,w as e,r as t,o as m,b as n}from"./index-CnOS-fw9.js";const f={class:"contribute"},b=["innerHTML"],h={__name:"Contribute",setup(k){const s=i("");return p(async()=>{s.value=d(`#### 准备材料
+import{m as d}from"./github-markdown-BOpQ1pHb.js";import{_,e as i,f as p,c as u,a as o,w as e,r as t,o as m,b as n}from"./index-DjstqKgW.js";const f={class:"contribute"},b=["innerHTML"],h={__name:"Contribute",setup(k){const s=i("");return p(async()=>{s.value=d(`#### 准备材料
 
 - 题目描述、时长限制、内存限制
 - 多组输入（后缀为in）、输出（后缀为out）
