@@ -19,12 +19,10 @@ def load_problem_config(problem_dir):
 def decrypt_data(private_key, encrypted_b64):
     encrypted_data = base64.b64decode(encrypted_b64)
     
-    # 提取RSA加密的AES密钥、IV和加密数据
     encrypted_key = encrypted_data[:256]
     iv = encrypted_data[256:272]
     encrypted_content = encrypted_data[272:]
     
-    # 解密AES密钥
     aes_key = private_key.decrypt(
         encrypted_key,
         padding.OAEP(
@@ -34,29 +32,24 @@ def decrypt_data(private_key, encrypted_b64):
         )
     )
     
-    # 使用AES解密数据
     cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
     decrypted_padded = decryptor.update(encrypted_content) + decryptor.finalize()
     
-    # 移除PKCS7 padding
     pad_length = decrypted_padded[-1]
     return decrypted_padded[:-pad_length]
 
-def normalize_text(text):
-    lines = text.decode().strip().split('\n')
+def normalize_text(text_path):
+    with open(text_path, 'r') as f:
+        lines = f.read().strip().split('\n')
     return '\n'.join(line.rstrip() for line in lines)
 
-def run_testcase(exe_path, input_data, time_limit, memory_limit):
+def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
     try:
-        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as temp_input:
-            temp_input.write(input_data)
-            temp_input_path = temp_input.name
-
         proc = subprocess.Popen(
             [exe_path],
-            stdin=open(temp_input_path, 'rb'),
-            stdout=subprocess.PIPE,
+            stdin=open(input_path, 'r'),
+            stdout=open(output_path, 'w'),
             stderr=subprocess.PIPE
         )
         
@@ -71,26 +64,20 @@ def run_testcase(exe_path, input_data, time_limit, memory_limit):
                 
                 if max_memory_used > memory_limit:
                     proc.kill()
-                    return False, None, "Memory Limit Exceeded"
+                    return False, "Memory Limit Exceeded"
                 
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 break
         
         try:
-            stdout, stderr = proc.communicate(timeout=time_limit/1000)
-            return proc.returncode == 0, stdout, None
+            _, stderr = proc.communicate(timeout=time_limit/1000)
+            return proc.returncode == 0, None
         except subprocess.TimeoutExpired:
             proc.kill()
-            return False, None, "Time Limit Exceeded"
+            return False, "Time Limit Exceeded"
             
     except Exception as e:
-        return False, None, str(e)
-    finally:
-        if 'temp_input_path' in locals():
-            try:
-                os.unlink(temp_input_path)
-            except:
-                pass
+        return False, str(e)
 
 def judge(private_key_path, problem_dir, solution_file):
     config = load_problem_config(problem_dir)
@@ -114,37 +101,50 @@ def judge(private_key_path, problem_dir, solution_file):
     has_tle = False
     has_mle = False
     
-    for filename in sorted(os.listdir(problem_dir)):
-        if filename.endswith('.in.enc'):
-            total_cases += 1
-            testcase = filename[:-7]
-            input_file = os.path.join(problem_dir, filename)
-            output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
-            
-            with open(input_file, 'rb') as f:
-                input_data = decrypt_data(private_key, f.read())
-            
-            with open(output_file, 'rb') as f:
-                expected_output = decrypt_data(private_key, f.read())
-            
-            success, actual_output, error = run_testcase(exe_path, input_data, time_limit, memory_limit)
-            
-            if error:
-                if "Time Limit Exceeded" in error:
-                    has_tle = True
-                elif "Memory Limit Exceeded" in error:
-                    has_mle = True
-                results.append(f'测试点 {testcase}: {error}')
-                continue
+    # 创建临时目录存放解密后的输入输出文件
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for filename in sorted(os.listdir(problem_dir)):
+            if filename.endswith('.in.enc'):
+                total_cases += 1
+                testcase = filename[:-7]
+                input_file = os.path.join(problem_dir, filename)
+                output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
                 
-            expected = normalize_text(expected_output)
-            actual = normalize_text(actual_output)
-            
-            if expected == actual:
-                results.append(f'测试点 {testcase}: AC')
-                ac_cases += 1
-            else:
-                results.append(f'测试点 {testcase}: WA')
+                # 解密并保存输入文件
+                with open(input_file, 'rb') as f:
+                    input_data = decrypt_data(private_key, f.read())
+                temp_input = os.path.join(temp_dir, f'{testcase}.in')
+                with open(temp_input, 'wb') as f:
+                    f.write(input_data)
+                
+                # 解密并保存预期输出文件
+                with open(output_file, 'rb') as f:
+                    expected_output = decrypt_data(private_key, f.read())
+                temp_expected = os.path.join(temp_dir, f'{testcase}.expected')
+                with open(temp_expected, 'wb') as f:
+                    f.write(expected_output)
+                
+                # 创建实际输出文件路径
+                temp_output = os.path.join(temp_dir, f'{testcase}.out')
+                
+                success, error = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
+                
+                if error:
+                    if "Time Limit Exceeded" in error:
+                        has_tle = True
+                    elif "Memory Limit Exceeded" in error:
+                        has_mle = True
+                    results.append(f'测试点 {testcase}: {error}')
+                    continue
+                
+                expected = normalize_text(temp_expected)
+                actual = normalize_text(temp_output)
+                
+                if expected == actual:
+                    results.append(f'测试点 {testcase}: AC')
+                    ac_cases += 1
+                else:
+                    results.append(f'测试点 {testcase}: WA')
     
     if ac_cases == total_cases:
         status = "AC"
