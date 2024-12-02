@@ -7,6 +7,8 @@ import psutil
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 import tempfile
 
 def load_problem_config(problem_dir):
@@ -15,16 +17,31 @@ def load_problem_config(problem_dir):
         return json.load(f)
 
 def decrypt_data(private_key, encrypted_b64):
-    encrypted = base64.b64decode(encrypted_b64)
-    decrypted = private_key.decrypt(
-        encrypted,
+    encrypted_data = base64.b64decode(encrypted_b64)
+    
+    # 提取RSA加密的AES密钥、IV和加密数据
+    encrypted_key = encrypted_data[:256]
+    iv = encrypted_data[256:272]
+    encrypted_content = encrypted_data[272:]
+    
+    # 解密AES密钥
+    aes_key = private_key.decrypt(
+        encrypted_key,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
-    return decrypted
+    
+    # 使用AES解密数据
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    decrypted_padded = decryptor.update(encrypted_content) + decryptor.finalize()
+    
+    # 移除PKCS7 padding
+    pad_length = decrypted_padded[-1]
+    return decrypted_padded[:-pad_length]
 
 def normalize_text(text):
     lines = text.decode().strip().split('\n')
@@ -32,7 +49,6 @@ def normalize_text(text):
 
 def run_testcase(exe_path, input_data, time_limit, memory_limit):
     try:
-        # 创建临时文件来存储解密后的输入数据
         with tempfile.NamedTemporaryFile(mode='wb', delete=False) as temp_input:
             temp_input.write(input_data)
             temp_input_path = temp_input.name
@@ -50,7 +66,7 @@ def run_testcase(exe_path, input_data, time_limit, memory_limit):
         while proc.poll() is None:
             try:
                 memory_info = psutil_proc.memory_info()
-                memory_used = memory_info.rss / 1024 / 1024  # Convert to MB
+                memory_used = memory_info.rss / 1024 / 1024
                 max_memory_used = max(max_memory_used, memory_used)
                 
                 if max_memory_used > memory_limit:
@@ -70,7 +86,6 @@ def run_testcase(exe_path, input_data, time_limit, memory_limit):
     except Exception as e:
         return False, None, str(e)
     finally:
-        # 清理临时文件
         if 'temp_input_path' in locals():
             try:
                 os.unlink(temp_input_path)
@@ -79,8 +94,8 @@ def run_testcase(exe_path, input_data, time_limit, memory_limit):
 
 def judge(private_key_path, problem_dir, solution_file):
     config = load_problem_config(problem_dir)
-    time_limit = config.get('timeLimit', 1000)  # 默认1000ms
-    memory_limit = config.get('memoryLimit', 256)  # 默认256MB
+    time_limit = config.get('timeLimit', 1000)
+    memory_limit = config.get('memoryLimit', 256)
     
     with open(private_key_path, 'rb') as f:
         private_key = serialization.load_pem_private_key(
@@ -102,15 +117,13 @@ def judge(private_key_path, problem_dir, solution_file):
     for filename in sorted(os.listdir(problem_dir)):
         if filename.endswith('.in.enc'):
             total_cases += 1
-            testcase = filename[:-7]  # 从 .in.enc 变为基础文件名
+            testcase = filename[:-7]
             input_file = os.path.join(problem_dir, filename)
             output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
             
-            # 解密输入文件
             with open(input_file, 'rb') as f:
                 input_data = decrypt_data(private_key, f.read())
             
-            # 解密输出文件
             with open(output_file, 'rb') as f:
                 expected_output = decrypt_data(private_key, f.read())
             
