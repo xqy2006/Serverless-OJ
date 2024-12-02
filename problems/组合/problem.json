@@ -1,0 +1,9 @@
+{
+  "id": "1",
+  "title": "组合",
+  "author": "xqy",
+  "difficulty": "medium",
+  "description": "输出所有组合",
+  "timeLimit": 1000,
+  "memoryLimit": 256
+}
