@@ -38,15 +38,12 @@ jobs:
           
           # 解密提交的代码
           echo "${{ github.event.issue.body }}" | base64 -d > encrypted_code
-          
-          # 创建检测作弊的Python脚本
-          cat > check_cheating.py << 'EOF'
+          python3 -c "
           from cryptography.hazmat.primitives import serialization
           from cryptography.hazmat.primitives.asymmetric import padding
           from cryptography.hazmat.primitives import hashes
           import base64
           import os
-          import sys
           
           with open('private.pem', 'rb') as f:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
@@ -63,34 +60,26 @@ jobs:
               )
           )
           
-          # 分离用户名和代码
           content = decrypted.decode('utf-8')
           username, code = content.split('\n', 1)
           
-          # 验证用户名
           issue_creator = os.environ['ISSUE_CREATOR']
           if username.strip() != issue_creator:
-              print('CHEATING')
-              sys.exit(1)
+              with open('judge_result.txt', 'w') as f:
+                  f.write('CHEATING')
+          else:
+              with open('solution.cpp', 'wb') as f:
+                  f.write(code.encode('utf-8'))
+              with open('judge_result.txt', 'w') as f:
+                  f.write('OK')
+          "
           
-          with open('solution.cpp', 'wb') as f:
-              f.write(code.encode('utf-8'))
-          print('OK')
-          EOF
+          # 检查判定结果
+          JUDGE_RESULT=$(cat judge_result.txt)
           
-          # 运行检测
-          CHEAT_CHECK=$(python3 check_cheating.py)
-          
-          # 确保标签存在
-          create_label_if_not_exists() {
-            local label=$1
-            local color=$2
-            gh label list | grep -q "^$label\s" || gh label create "$label" --color "$color"
-          }
-          
-          if [ "$CHEAT_CHECK" == "CHEATING" ]; then
+          if [ "$JUDGE_RESULT" = "CHEATING" ]; then
             # 创建作弊标签
-            create_label_if_not_exists "CHEATING" "ff0000"
+            gh label create "CHEATING" --color "ff0000" || true
             
             # 添加作弊标签和回复
             gh issue edit ${{ github.event.issue.number }} --add-label "CHEATING"
@@ -105,6 +94,13 @@ jobs:
             
             # 获取状态
             STATUS=$(cat judge_status.txt)
+            
+            # 确保标签存在
+            create_label_if_not_exists() {
+              local label=$1
+              local color=$2
+              gh label list | grep -q "^$label\s" || gh label create "$label" --color "$color"
+            }
             
             # 为不同的标签设置不同的颜色
             create_label_if_not_exists "AC" "0e8a16"
