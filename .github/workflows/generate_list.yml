@@ -1,12 +1,12 @@
-name: Generate list
+name: Generate list.txt
 
 on:
   push:
     branches:
       - main  # 监听主分支的更新
-  pull_request:  # 或者在PR时也运行
+  pull_request:
     branches:
-      - main
+      - main  # 或者在PR时也运行
 
 jobs:
   generate-list:
@@ -19,12 +19,8 @@ jobs:
       - name: Generate list.txt
         run: |
           # 确保 problems 目录存在
-          if [ -d "./problems" ]; then
-            # 获取 ./problems 下所有子文件夹名称并写入 list.txt
-            find ./problems -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > ./problems/list.txt
-          else
-            echo "problems directory does not exist" > ./problems/list.txt
-          fi
+          mkdir -p ./problems  # 如果不存在，创建空目录
+          find ./problems -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > ./problems/list.txt
 
       - name: Commit and push changes
         run: |
@@ -32,10 +28,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 检查是否有更改
+          # 检查是否有更改并提交
           if [ -n "$(git status --porcelain)" ]; then
             git add ./problems/list.txt
             git commit -m "Update list.txt"
             git push
           else
             echo "No changes to commit"
+        shell: bash
