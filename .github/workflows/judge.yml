@@ -38,12 +38,15 @@ jobs:
           
           # 解密提交的代码
           echo "${{ github.event.issue.body }}" | base64 -d > encrypted_code
-          python3 -c "
+          
+          # 创建检测作弊的Python脚本
+          cat > check_cheating.py << 'EOF'
           from cryptography.hazmat.primitives import serialization
           from cryptography.hazmat.primitives.asymmetric import padding
           from cryptography.hazmat.primitives import hashes
           import base64
           import os
+          import sys
           
           with open('private.pem', 'rb') as f:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
@@ -68,32 +71,15 @@ jobs:
           issue_creator = os.environ['ISSUE_CREATOR']
           if username.strip() != issue_creator:
               print('CHEATING')
-              exit(1)
+              sys.exit(1)
           
           with open('solution.cpp', 'wb') as f:
               f.write(code.encode('utf-8'))
-          "
+          print('OK')
+          EOF
           
-          # 检查是否作弊
-          if [ $? -eq 1 ]; then
-            # 创建作弊标签
-            gh label create "CHEATING" --color "ff0000" || true
-            
-            # 添加作弊标签和回复
-            gh issue edit ${{ github.event.issue.number }} --add-label "CHEATING"
-            gh issue comment ${{ github.event.issue.number }} --body "检测到代码抄袭行为！"
-            gh issue close ${{ github.event.issue.number }}
-            exit 1
-          fi
-          
-          # 运行评测
-          RESULT=$(python3 judge.py private.pem "problems/$PROBLEM_NAME" solution.cpp)
-          
-          # 回复结果
-          gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
-          
-          # 获取状态
-          STATUS=$(cat judge_status.txt)
+          # 运行检测
+          CHEAT_CHECK=$(python3 check_cheating.py)
           
           # 确保标签存在
           create_label_if_not_exists() {
@@ -102,14 +88,33 @@ jobs:
             gh label list | grep -q "^$label\s" || gh label create "$label" --color "$color"
           }
           
-          # 为不同的标签设置不同的颜色
-          create_label_if_not_exists "AC" "0e8a16"
-          create_label_if_not_exists "MLE" "1e90ff"
-          create_label_if_not_exists "WA" "d93f0b"
-          create_label_if_not_exists "TLE" "ff69b4"
-          create_label_if_not_exists "CE" "808080"
-          
-          # 添加标签
-          gh issue edit ${{ github.event.issue.number }} --add-label "$STATUS"
-          
-          gh issue close ${{ github.event.issue.number }}
+          if [ "$CHEAT_CHECK" == "CHEATING" ]; then
+            # 创建作弊标签
+            create_label_if_not_exists "CHEATING" "ff0000"
+            
+            # 添加作弊标签和回复
+            gh issue edit ${{ github.event.issue.number }} --add-label "CHEATING"
+            gh issue comment ${{ github.event.issue.number }} --body "检测到代码抄袭行为！"
+            gh issue close ${{ github.event.issue.number }}
+          else
+            # 运行评测
+            RESULT=$(python3 judge.py private.pem "problems/$PROBLEM_NAME" solution.cpp)
+            
+            # 回复结果
+            gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
+            
+            # 获取状态
+            STATUS=$(cat judge_status.txt)
+            
+            # 为不同的标签设置不同的颜色
+            create_label_if_not_exists "AC" "0e8a16"
+            create_label_if_not_exists "MLE" "1e90ff"
+            create_label_if_not_exists "WA" "d93f0b"
+            create_label_if_not_exists "TLE" "ff69b4"
+            create_label_if_not_exists "CE" "808080"
+            
+            # 添加标签
+            gh issue edit ${{ github.event.issue.number }} --add-label "$STATUS"
+            
+            gh issue close ${{ github.event.issue.number }}
+          fi
