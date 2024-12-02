@@ -51,7 +51,7 @@ jobs:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
           
           with open('encrypted_code', 'rb') as f:
-              encrypted_data = base64.b64decode(f.read())
+              encrypted_data = f.read()
           
           # 提取RSA加密的AES密钥(前256字节)，IV(接下来的16字节)和加密数据
           encrypted_key = encrypted_data[:256]
