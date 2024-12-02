@@ -42,6 +42,8 @@ jobs:
           from cryptography.hazmat.primitives import serialization
           from cryptography.hazmat.primitives.asymmetric import padding
           from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+          from cryptography.hazmat.backends import default_backend
           import base64
           import os
           
@@ -49,16 +51,31 @@ jobs:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
           
           with open('encrypted_code', 'rb') as f:
-              encrypted = f.read()
+              encrypted_data = base64.b64decode(f.read())
           
-          decrypted = private_key.decrypt(
-              encrypted,
+          # 提取RSA加密的AES密钥(前256字节)，IV(接下来的16字节)和加密数据
+          encrypted_key = encrypted_data[:256]
+          iv = encrypted_data[256:272]
+          encrypted_content = encrypted_data[272:]
+          
+          # 解密AES密钥
+          aes_key = private_key.decrypt(
+              encrypted_key,
               padding.OAEP(
                   mgf=padding.MGF1(algorithm=hashes.SHA256()),
                   algorithm=hashes.SHA256(),
                   label=None
               )
           )
+          
+          # 使用AES解密数据
+          cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+          decryptor = cipher.decryptor()
+          decrypted_padded = decryptor.update(encrypted_content) + decryptor.finalize()
+          
+          # 移除PKCS7 padding
+          pad_length = decrypted_padded[-1]
+          decrypted = decrypted_padded[:-pad_length]
           
           content = decrypted.decode('utf-8')
           username, code = content.split('\n', 1)
