@@ -28,6 +28,7 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.RSA_PRIVATE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_CREATOR: ${{ github.event.issue.user.login }}
         run: |
           # 解析题目名称
           PROBLEM_NAME=$(echo "${{ github.event.issue.title }}" | sed 's/评测//')
@@ -42,6 +43,7 @@ jobs:
           from cryptography.hazmat.primitives.asymmetric import padding
           from cryptography.hazmat.primitives import hashes
           import base64
+          import os
           
           with open('private.pem', 'rb') as f:
               private_key = serialization.load_pem_private_key(f.read(), password=None)
@@ -58,9 +60,31 @@ jobs:
               )
           )
           
+          # 分离用户名和代码
+          content = decrypted.decode('utf-8')
+          username, code = content.split('\n', 1)
+          
+          # 验证用户名
+          issue_creator = os.environ['ISSUE_CREATOR']
+          if username.strip() != issue_creator:
+              print('CHEATING')
+              exit(1)
+          
           with open('solution.cpp', 'wb') as f:
-              f.write(decrypted)
+              f.write(code.encode('utf-8'))
           "
+          
+          # 检查是否作弊
+          if [ $? -eq 1 ]; then
+            # 创建作弊标签
+            gh label create "CHEATING" --color "ff0000" || true
+            
+            # 添加作弊标签和回复
+            gh issue edit ${{ github.event.issue.number }} --add-label "CHEATING"
+            gh issue comment ${{ github.event.issue.number }} --body "检测到代码抄袭行为！"
+            gh issue close ${{ github.event.issue.number }}
+            exit 1
+          fi
           
           # 运行评测
           RESULT=$(python3 judge.py private.pem "problems/$PROBLEM_NAME" solution.cpp)
@@ -79,11 +103,11 @@ jobs:
           }
           
           # 为不同的标签设置不同的颜色
-          create_label_if_not_exists "AC" "0e8a16"            # 绿色
-          create_label_if_not_exists "MLE" "1e90ff"  # 蓝色
-          create_label_if_not_exists "WA" "d93f0b"           # 红色
-          create_label_if_not_exists "TLE" "ff69b4"          # 粉色
-          create_label_if_not_exists "CE" "808080"           # 灰色
+          create_label_if_not_exists "AC" "0e8a16"
+          create_label_if_not_exists "MLE" "1e90ff"
+          create_label_if_not_exists "WA" "d93f0b"
+          create_label_if_not_exists "TLE" "ff69b4"
+          create_label_if_not_exists "CE" "808080"
           
           # 添加标签
           gh issue edit ${{ github.event.issue.number }} --add-label "$STATUS"
