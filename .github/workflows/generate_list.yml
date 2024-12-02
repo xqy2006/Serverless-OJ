@@ -1,38 +1,34 @@
-name: Generate list.txt
+name: generate list
 
 on:
   push:
     branches:
-      - main  # 监听主分支的更新
-  pull_request:
-    branches:
-      - main  # 或者在PR时也运行
+      - main  # 或者指定您仓库的默认分支
 
 jobs:
-  generate-list:
+  update-list:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Generate list.txt
         run: |
-          # 确保 problems 目录存在
-          mkdir -p ./problems  # 如果不存在，创建空目录
-          find ./problems -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > ./problems/list.txt
+          # 确保 ./problems 目录存在
+          if [ -d ./problems ]; then
+            # 查找子目录并写入 list.txt
+            find ./problems -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > ./problems/list.txt
+          else
+            echo "No problems directory found" > ./problems/list.txt
+          fi
 
       - name: Commit and push changes
         run: |
-          # 配置 git 用户信息
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 检查是否有更改并提交
-          if [ -n "$(git status --porcelain)" ]; then
-            git add ./problems/list.txt
-            git commit -m "Update list.txt"
-            git push
-          else
-            echo "No changes to commit"
-        shell: bash
+          git add ./problems/list.txt
+          git commit -m "Update list.txt"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
