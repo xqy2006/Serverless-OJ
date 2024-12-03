@@ -108,7 +108,7 @@ def output_reader(proc, output_file, queue, monitor):
 
 
 def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
-    MAX_OUTPUT_SIZE = 50 * 1024 * 1024  # 50MB 输出限制
+    MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
 
     try:
@@ -124,7 +124,6 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         psutil_proc = psutil.Process(proc.pid)
         queue = Queue()
 
-        # 启动输出读取线程
         reader_thread = threading.Thread(
             target=output_reader,
             args=(proc, output_path, queue, monitor)
@@ -192,12 +191,7 @@ def judge(private_key_path, problem_dir, solution_file):
     ac_cases = 0
     has_tle = False
     has_mle = False
-<<<<<<< Updated upstream
     
-=======
-
-    # 创建临时目录存放解密后的输入输出文件
->>>>>>> Stashed changes
     with tempfile.TemporaryDirectory() as temp_dir:
         for filename in sorted(os.listdir(problem_dir)):
             if filename.endswith('.in.enc'):
@@ -205,34 +199,19 @@ def judge(private_key_path, problem_dir, solution_file):
                 testcase = filename[:-7]
                 input_file = os.path.join(problem_dir, filename)
                 output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
-<<<<<<< Updated upstream
                 
-=======
-
-                # 解密并保存输入文件
->>>>>>> Stashed changes
                 with open(input_file, 'rb') as f:
                     input_data = decrypt_data(private_key, f.read())
                 temp_input = os.path.join(temp_dir, f'{testcase}.in')
                 with open(temp_input, 'wb') as f:
                     f.write(input_data)
-<<<<<<< Updated upstream
                 
-=======
-
-                # 解密并保存预期输出文件
->>>>>>> Stashed changes
                 with open(output_file, 'rb') as f:
                     expected_output = decrypt_data(private_key, f.read())
                 temp_expected = os.path.join(temp_dir, f'{testcase}.expected')
                 with open(temp_expected, 'wb') as f:
                     f.write(expected_output)
-<<<<<<< Updated upstream
                 
-=======
-
-                # 创建实际输出文件路径
->>>>>>> Stashed changes
                 temp_output = os.path.join(temp_dir, f'{testcase}.out')
 
                 success, error = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
