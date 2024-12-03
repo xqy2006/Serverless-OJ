@@ -101,7 +101,6 @@ def judge(private_key_path, problem_dir, solution_file):
     has_tle = False
     has_mle = False
     
-    # 创建临时目录存放解密后的输入输出文件
     with tempfile.TemporaryDirectory() as temp_dir:
         for filename in sorted(os.listdir(problem_dir)):
             if filename.endswith('.in.enc'):
@@ -110,21 +109,18 @@ def judge(private_key_path, problem_dir, solution_file):
                 input_file = os.path.join(problem_dir, filename)
                 output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
                 
-                # 解密并保存输入文件
                 with open(input_file, 'rb') as f:
                     input_data = decrypt_data(private_key, f.read())
                 temp_input = os.path.join(temp_dir, f'{testcase}.in')
                 with open(temp_input, 'wb') as f:
                     f.write(input_data)
                 
-                # 解密并保存预期输出文件
                 with open(output_file, 'rb') as f:
                     expected_output = decrypt_data(private_key, f.read())
                 temp_expected = os.path.join(temp_dir, f'{testcase}.expected')
                 with open(temp_expected, 'wb') as f:
                     f.write(expected_output)
                 
-                # 创建实际输出文件路径
                 temp_output = os.path.join(temp_dir, f'{testcase}.out')
                 
                 success, error = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
