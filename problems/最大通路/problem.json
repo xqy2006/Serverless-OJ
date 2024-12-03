@@ -4,6 +4,6 @@
   "author": "xqy",
   "difficulty": "medium",
   "description": "找到立方体上最大通路",
-  "timeLimit": 1000,
+  "timeLimit": 1200,
   "memoryLimit": 256
 }
