@@ -123,6 +123,11 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         with open(output_path, 'wb') as output_file:
             while True:
                 if proc.poll() is not None:
+                    if proc.returncode < 0:
+                        return False, "Runtime Error: Program terminated by signal"
+                    elif proc.returncode > 0:
+                        stderr_output = proc.stderr.read().decode('utf-8', errors='ignore')
+                        return False, f"Runtime Error: Program exited with code {proc.returncode}"
                     break
                     
                 try:
@@ -153,10 +158,10 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
             proc.kill()
             return False, "Time Limit Exceeded"
             
-        return proc.returncode == 0, None
+        return True, None
             
     except Exception as e:
-        return False, str(e)
+        return False, f"Runtime Error: {str(e)}"
 
 def judge(private_key_path, problem_dir, solution_file):
     config = load_problem_config(problem_dir)
@@ -179,6 +184,7 @@ def judge(private_key_path, problem_dir, solution_file):
     ac_cases = 0
     has_tle = False
     has_mle = False
+    has_re = False
     with tempfile.TemporaryDirectory() as temp_dir:
         for filename in sorted(os.listdir(problem_dir)):
             if filename.endswith('.in.enc'):
@@ -205,6 +211,8 @@ def judge(private_key_path, problem_dir, solution_file):
                         has_tle = True
                     elif "Memory Limit Exceeded" in error:
                         has_mle = True
+                    elif "Runtime Error" in error:
+                        has_re = True
                     results.append(f'测试点 {testcase}: {error}')
                     continue
                 
@@ -223,6 +231,8 @@ def judge(private_key_path, problem_dir, solution_file):
         status = "MLE"
     elif has_tle:
         status = "TLE"
+    elif has_re:
+        status = "RE"
     elif ac_cases > 0:
         status = "WA"
     else:
