@@ -49,10 +49,7 @@ jobs:
           # 读取加密数据
           with open('encrypted_content', 'rb') as f:
               encrypted_data = f.read()
-          if os.path.exists('private.pem'):
-              os.remove('private.pem')
-          if os.path.exists('encrypted_content'):
-              os.remove('encrypted_content')
+          
           # 解密过程
           encrypted_key = encrypted_data[:256]
           iv = encrypted_data[256:272]
@@ -66,7 +63,10 @@ jobs:
                   label=None
               )
           )
-          
+          if os.path.exists('private.pem'):
+              os.remove('private.pem')
+          if os.path.exists('encrypted_content'):
+              os.remove('encrypted_content')
           cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
           decryptor = cipher.decryptor()
           decrypted_padded = decryptor.update(encrypted_content) + decryptor.finalize()
