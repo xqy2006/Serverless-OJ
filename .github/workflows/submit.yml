@@ -159,5 +159,7 @@ jobs:
           EOF
           
       - name: Close issue
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh issue close ${{ github.event.issue.number }} --comment "题目提交已处理，PR已创建。"
