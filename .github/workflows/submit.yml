@@ -1,0 +1,163 @@
+name: Problem Submission
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  process-submission:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.title, '题目提交')
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install cryptography
+          
+      - name: Process submission
+        env:
+          PRIVATE_KEY: ${{ secrets.RSA_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 保存私钥
+          echo "$PRIVATE_KEY" > private.pem
+          
+          # 解密issue内容
+          echo "${{ github.event.issue.body }}" | base64 -d > encrypted_content
+          python3 - <<'EOF'
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+          from cryptography.hazmat.primitives import hashes
+          from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+          from cryptography.hazmat.backends import default_backend
+          import json
+          import os
+          import subprocess
+          import tempfile
+          
+          # 读取私钥
+          with open('private.pem', 'rb') as f:
+              private_key = serialization.load_pem_private_key(f.read(), password=None)
+          
+          # 读取加密数据
+          with open('encrypted_content', 'rb') as f:
+              encrypted_data = f.read()
+          
+          # 解密过程
+          encrypted_key = encrypted_data[:256]
+          iv = encrypted_data[256:272]
+          encrypted_content = encrypted_data[272:]
+          
+          aes_key = private_key.decrypt(
+              encrypted_key,
+              padding.OAEP(
+                  mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                  algorithm=hashes.SHA256(),
+                  label=None
+              )
+          )
+          
+          cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
+          decryptor = cipher.decryptor()
+          decrypted_padded = decryptor.update(encrypted_content) + decryptor.finalize()
+          
+          pad_length = decrypted_padded[-1]
+          decrypted = decrypted_padded[:-pad_length].decode('utf-8')
+          
+          # 解析解密后的内容
+          content_parts = decrypted.split('---SEPARATOR---')
+          problem_json = json.loads(content_parts[0])
+          readme_content = content_parts[1]
+          test_data = content_parts[2]
+          
+          # 获取题目名称
+          problem_name = problem_json['title']
+          problem_dir = f'problems/{problem_name}'
+          
+          # 创建题目目录
+          os.makedirs(problem_dir, exist_ok=True)
+          
+          # 保存problem.json
+          with open(f'{problem_dir}/problem.json', 'w', encoding='utf-8') as f:
+              json.dump(problem_json, f, ensure_ascii=False, indent=2)
+          
+          # 保存README.md
+          with open(f'{problem_dir}/README.md', 'w', encoding='utf-8') as f:
+              f.write(readme_content)
+          
+          # 创建临时目录处理测试数据
+          with tempfile.TemporaryDirectory() as temp_dir:
+              # 判断测试数据类型并处理
+              if '---SOURCE---' in test_data:
+                  # 第一种情况：源代码和输入
+                  source_code, inputs = test_data.split('---SOURCE---')[1].split('---INPUTS---')
+                  # 保存源代码
+                  with open(f'{temp_dir}/solution.cpp', 'w') as f:
+                      f.write(source_code)
+                  # 编译源代码
+                  subprocess.run(['g++', f'{temp_dir}/solution.cpp', '-o', f'{temp_dir}/solution', '-O2'])
+                  
+                  # 处理每组输入
+                  for idx, input_data in enumerate(inputs.strip().split('---CASE---'), 1):
+                      if not input_data.strip():
+                          continue
+                      # 保存输入
+                      with open(f'{temp_dir}/{idx}.in', 'w') as f:
+                          f.write(input_data.strip())
+                      # 运行程序获取输出
+                      with open(f'{temp_dir}/{idx}.in', 'r') as fin, \
+                           open(f'{temp_dir}/{idx}.out', 'w') as fout:
+                          subprocess.run([f'{temp_dir}/solution'], 
+                                      stdin=fin, 
+                                      stdout=fout)
+              else:
+                  # 第二种情况：直接提供输入输出
+                  cases = test_data.split('---CASE---')
+                  for idx, case in enumerate(cases, 1):
+                      if not case.strip():
+                          continue
+                      input_data, output_data = case.split('---OUTPUT---')
+                      with open(f'{temp_dir}/{idx}.in', 'w') as f:
+                          f.write(input_data.strip())
+                      with open(f'{temp_dir}/{idx}.out', 'w') as f:
+                          f.write(output_data.strip())
+              
+              # 加密测试数据
+              subprocess.run(['python', 'encrypt.py', temp_dir])
+              
+              # 移动加密后的文件到题目目录
+              for f in os.listdir(temp_dir):
+                  if f.endswith('.enc'):
+                      os.rename(f'{temp_dir}/{f}', f'{problem_dir}/{f}')
+          
+          # 创建分支名
+          branch_name = f'problem-submission-{problem_name}'
+          
+          # 设置git配置
+          os.system('git config user.name "GitHub Action"')
+          os.system('git config user.email "action@github.com"')
+          
+          # 创建新分支
+          os.system(f'git checkout -b {branch_name}')
+          
+          # 添加文件到git
+          os.system('git add .')
+          os.system('git commit -m "Add new problem: ' + problem_name + '"')
+          os.system(f'git push origin {branch_name}')
+          
+          # 创建PR
+          os.system(f'gh pr create --title "Add new problem: {problem_name}" '
+                   f'--body "Automatically created PR for new problem submission." '
+                   f'--base main --head {branch_name}')
+          EOF
+          
+      - name: Close issue
+        run: |
+          gh issue close ${{ github.event.issue.number }} --comment "题目提交已处理，PR已创建。"
