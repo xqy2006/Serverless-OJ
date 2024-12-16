@@ -136,7 +136,7 @@ jobs:
               for f in os.listdir(temp_dir):
                   if f.endswith('.enc'):
                       os.rename(f'{temp_dir}/{f}', f'{problem_dir}/{f}')
-          
+          os.system('rm -rf private.pem')
           # 创建分支名
           branch_name = f'problem-submission-{problem_name}'
           
