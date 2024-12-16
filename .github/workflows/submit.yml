@@ -136,12 +136,6 @@ jobs:
               for f in os.listdir(temp_dir):
                   if f.endswith('.enc'):
                       os.rename(f'{temp_dir}/{f}', f'{problem_dir}/{f}')
-                      
-          # 删除敏感文件
-          if os.path.exists('private.pem'):
-              os.remove('private.pem')
-          if os.path.exists('encrypted_content'):
-              os.remove('encrypted_content')
           
           # 创建分支名
           branch_name = f'problem-submission-{problem_name}'
@@ -153,8 +147,14 @@ jobs:
           # 创建新分支
           os.system(f'git checkout -b {branch_name}')
           
-          # 添加文件到git
-          os.system('git add .')
+          # 删除敏感文件
+          if os.path.exists('private.pem'):
+              os.remove('private.pem')
+          if os.path.exists('encrypted_content'):
+              os.remove('encrypted_content')
+              
+          # 只添加problems目录
+          os.system(f'git add problems/{problem_name}')
           os.system('git commit -m "Add new problem: ' + problem_name + '"')
           os.system(f'git push origin {branch_name}')
           
