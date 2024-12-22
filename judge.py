@@ -218,8 +218,8 @@ def judge(private_key_path, problem_dir, solution_file):
                 
                 expected = normalize_text(temp_expected)
                 actual = normalize_text(temp_output)
-                print(expected)
-                print(actual)
+                #print(expected)
+                #print(actual)
                 if expected == actual:
                     results.append(f'测试点 {testcase}: AC')
                     ac_cases += 1
