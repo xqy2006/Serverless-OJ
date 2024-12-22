@@ -45,7 +45,7 @@ def decrypt_data(private_key, encrypted_b64):
 def normalize_text(text_path):
     with open(text_path, 'r') as f:
         lines = f.read().strip().split('\n')
-        print(lines)
+        #print(lines)
     return '\n'.join(line.rstrip() for line in lines)
 
 class ProcessMonitor:
@@ -177,7 +177,7 @@ def judge(private_key_path, problem_dir, solution_file):
         )
     
     exe_path = './solution'
-    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2','-Wall','-fno-asm','-lm','-march=native'])
+    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2','-Wall','-fno-asm','-lm','-march=native''-D_IONBF','-fno-buffering-stdio','-Wno-unused-result'])
     if compile_result.returncode != 0:
         return "Compilation Error", "CE"
     
