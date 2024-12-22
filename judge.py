@@ -177,7 +177,7 @@ def judge(private_key_path, problem_dir, solution_file):
         )
     
     exe_path = './solution'
-    compile_result = subprocess.run(['g++', solution_file, '-o', exe_path, '-O2'])
+    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2','-Wall','-fno-asm','-lm','-march=native'])
     if compile_result.returncode != 0:
         return "Compilation Error", "CE"
     
