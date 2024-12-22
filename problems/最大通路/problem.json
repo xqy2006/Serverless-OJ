@@ -1,9 +1,0 @@
-{
-  "id": "2",
-  "title": "最大通路",
-  "author": "xqy",
-  "difficulty": "medium",
-  "description": "找到立方体上最大通路",
-  "timeLimit": 1500,
-  "memoryLimit": 256
-}

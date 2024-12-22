@@ -1,8 +1,8 @@
 {
-  "id": "3",
+  "id": "1",
   "title": "学社的财务难题",
   "memoryLimit": 256,
-  "timeLimit": 1500,
+  "timeLimit": 1000,
   "difficulty": "hard",
   "author": "xqy2006"
 }
