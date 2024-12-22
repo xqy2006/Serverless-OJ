@@ -87,9 +87,7 @@ class ProcessMonitor:
 
 def output_reader(proc, output_file, queue, monitor):
     try:
-        time.sleep(0.5)
         while not monitor.stop_flag:
-            time.sleep(0.5)
             chunk = proc.stdout.read(8192)
             if not chunk:
                 break
@@ -133,7 +131,7 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                     break
                     
                 try:
-                    msg_type, data = queue.get(timeout=0.1)
+                    msg_type, data = queue.get(timeout=2.0)
                     if msg_type == 'output':
                         if not monitor.update_output_size(len(data)):
                             proc.kill()
