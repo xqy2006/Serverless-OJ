@@ -45,6 +45,7 @@ def decrypt_data(private_key, encrypted_b64):
 def normalize_text(text_path):
     with open(text_path, 'r') as f:
         lines = f.read().strip().split('\n')
+        print(lines)
     return '\n'.join(line.rstrip() for line in lines)
 
 class ProcessMonitor:
