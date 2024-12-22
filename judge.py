@@ -87,7 +87,9 @@ class ProcessMonitor:
 
 def output_reader(proc, output_file, queue, monitor):
     try:
+        time.sleep(0.5)
         while not monitor.stop_flag:
+            time.sleep(0.5)
             chunk = proc.stdout.read(8192)
             if not chunk:
                 break
