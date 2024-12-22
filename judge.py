@@ -104,6 +104,8 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
     
     try:
+        env = os.environ.copy()
+        env['STDIO_UNBUFFERED'] = '1'
         with open(input_path, 'rb') as input_file:
             proc = subprocess.Popen(
                 [exe_path],
