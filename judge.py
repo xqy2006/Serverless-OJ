@@ -90,7 +90,6 @@ def output_reader(proc, output_file, queue, monitor):
     try:
         while not monitor.stop_flag:
             chunk = proc.stdout.read(8192)
-            proc.stdout.flush()
             if not chunk:
                 break
             queue.put(('output', chunk))
@@ -156,7 +155,7 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         reader_thread.join(timeout=1.0)
         
         try:
-            proc.wait(timeout=0.1)
+            proc.wait(timeout=1.0)
         except subprocess.TimeoutExpired:
             proc.kill()
             return False, "Time Limit Exceeded"
