@@ -89,30 +89,32 @@ class ProcessMonitor:
 def output_reader(proc, output_file, queue, monitor):
     try:
         while not monitor.stop_flag:
-            chunk = proc.stdout.read(8192)
-            if not chunk:
+            chunk = proc.stdout.read1(8192)  # 使用read1替代read
+            if not chunk and proc.poll() is not None:  # 检查进程是否结束
                 break
-            queue.put(('output', chunk))
-            proc.stdout.flush()
+            if chunk:
+                queue.put(('output', chunk))
+        # 确保读取所有剩余输出
+        remaining = proc.stdout.read()
+        if remaining:
+            queue.put(('output', remaining))
     except Exception as e:
         queue.put(('error', str(e)))
     finally:
         queue.put(('done', None))
-
 def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
     MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
     
     try:
-        env = os.environ.copy()
-        env['STDIO_UNBUFFERED'] = '1'
         with open(input_path, 'rb') as input_file:
             proc = subprocess.Popen(
                 [exe_path],
                 stdin=input_file,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=0
+                bufsize=1,  # 使用行缓冲
+                universal_newlines=False  # 使用二进制模式
             )
             
         psutil_proc = psutil.Process(proc.pid)
@@ -125,8 +127,25 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         reader_thread.start()
         
         with open(output_path, 'wb') as output_file:
+            output_buffer = []
             while True:
                 if proc.poll() is not None:
+                    # 进程结束后，等待一小段时间确保所有输出都被读取
+                    time.sleep(0.1)
+                    # 继续处理队列中的所有剩余输出
+                    while True:
+                        try:
+                            msg_type, data = queue.get_nowait()
+                            if msg_type == 'output':
+                                output_buffer.append(data)
+                            elif msg_type == 'error':
+                                proc.kill()
+                                return False, f"Runtime Error: {data}"
+                            elif msg_type == 'done':
+                                break
+                        except Empty:
+                            break
+                            
                     if proc.returncode < 0:
                         return False, "Runtime Error: Program terminated by signal"
                     elif proc.returncode > 0:
@@ -135,12 +154,12 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                     break
                     
                 try:
-                    msg_type, data = queue.get(timeout=2.0)
+                    msg_type, data = queue.get(timeout=0.1)
                     if msg_type == 'output':
+                        output_buffer.append(data)
                         if not monitor.update_output_size(len(data)):
                             proc.kill()
                             return False, monitor.error
-                        output_file.write(data)
                     elif msg_type == 'error':
                         proc.kill()
                         return False, f"Runtime Error: {data}"
@@ -152,16 +171,15 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                 if not monitor.check_limits(proc, psutil_proc):
                     proc.kill()
                     return False, monitor.error
+            
+            # 将所有输出一次性写入文件
+            if output_buffer:
+                all_output = b''.join(output_buffer)
+                output_file.write(all_output)
                 
         monitor.stop_flag = True
         reader_thread.join(timeout=1.0)
         
-        try:
-            proc.wait(timeout=1.0)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            return False, "Time Limit Exceeded"
-            
         return True, None
             
     except Exception as e:
