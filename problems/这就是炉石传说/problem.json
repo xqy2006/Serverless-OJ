@@ -2,7 +2,7 @@
   "id": 2,
   "title": "这就是炉石传说",
   "memoryLimit": 256,
-  "timeLimit": 100,
+  "timeLimit": 50,
   "difficulty": "medium",
   "author": "xqy2006"
 }
