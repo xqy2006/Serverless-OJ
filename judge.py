@@ -90,9 +90,11 @@ def output_reader(proc, output_file, queue, monitor):
     try:
         while not monitor.stop_flag:
             chunk = proc.stdout.read(8192)
+            proc.stdout.flush()
             if not chunk:
                 break
             queue.put(('output', chunk))
+            proc.stdout.flush()
     except Exception as e:
         queue.put(('error', str(e)))
     finally:
