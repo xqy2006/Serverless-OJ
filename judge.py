@@ -13,7 +13,11 @@ from cryptography.hazmat.backends import default_backend
 import tempfile
 import threading
 from queue import Queue, Empty
-
+def natural_sort_key(s):
+    import re
+    def atoi(text):
+        return int(text) if text.isdigit() else text
+    return [atoi(c) for c in re.split(r'(\d+)', s)]
 def load_problem_config(problem_dir):
     config_path = os.path.join(problem_dir, 'problem.json')
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -131,7 +135,7 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                     if elapsed_time > time_limit:
                         proc.kill()
                         return False, "Time Limit Exceeded", elapsed_time
-                    time.sleep(0.01)
+                    time.sleep(0.001)
                     while True:
                         try:
                             msg_type, data = queue.get_nowait()
@@ -213,7 +217,7 @@ def judge(private_key_path, problem_dir, solution_file):
     with tempfile.TemporaryDirectory() as temp_dir:
         # 找到第一个测试样例进行预热
         first_testcase = None
-        for filename in sorted(os.listdir(problem_dir)):
+        for filename in sorted(os.listdir(problem_dir), key=natural_sort_key):
             if filename.endswith('.in.enc'):
                 first_testcase = filename[:-7]
                 break
@@ -230,7 +234,7 @@ def judge(private_key_path, problem_dir, solution_file):
             run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
 
         # 正式评测
-        for filename in sorted(os.listdir(problem_dir)):
+        for filename in sorted(os.listdir(problem_dir), key=natural_sort_key):
             if filename.endswith('.in.enc'):
                 total_cases += 1
                 testcase = filename[:-7]
