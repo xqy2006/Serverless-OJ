@@ -203,7 +203,7 @@ def judge(private_key_path, problem_dir, solution_file):
         )
     
     exe_path = './solution'
-    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2','-Wall','-fno-asm','-lm','-march=native','-D_IONBF','-Wno-unused-result'])
+    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2','-Wall','-fno-asm','-lstdc++','-lm','-march=native','-D_IONBF','-Wno-unused-result'])
     if compile_result.returncode != 0:
         return "Compilation Error", "CE"
     
