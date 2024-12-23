@@ -60,8 +60,8 @@ class ProcessMonitor:
         self.stop_flag = False
         
     def check_limits(self, proc, psutil_proc):
-        if not self.start_time:
-            self.start_time = time.time()
+        #if not self.start_time:
+        #    self.start_time = time.time()
         elapsed = (time.time() - self.start_time) * 1000
         if elapsed > self.time_limit:
             self.error = "Time Limit Exceeded"
@@ -116,7 +116,7 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                 bufsize=1,  # 使用行缓冲
                 universal_newlines=False  # 使用二进制模式
             )
-            
+            monitor.start_time=time.time()
         psutil_proc = psutil.Process(proc.pid)
         queue = Queue()
         reader_thread = threading.Thread(
