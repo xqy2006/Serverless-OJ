@@ -64,6 +64,8 @@ class ProcessMonitor:
         #    self.start_time = time.time()
         elapsed = (time.time() - self.start_time) * 1000
         print(str(elapsed)+"ms")
+        print(time.time())
+        print(self.start_time)
         if elapsed > self.time_limit:
             self.error = "Time Limit Exceeded"
             return False
