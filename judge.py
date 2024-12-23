@@ -131,7 +131,7 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                     if elapsed_time > time_limit:
                         proc.kill()
                         return False, "Time Limit Exceeded", elapsed_time
-                    time.sleep(0.1)
+                    time.sleep(0.01)
                     while True:
                         try:
                             msg_type, data = queue.get_nowait()
@@ -179,6 +179,8 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         reader_thread.join(timeout=1.0)
         
         final_time = (time.time() - start_time) * 1000
+        if final_time > time_limit:
+            return False, "Time Limit Exceeded", final_time
         return True, None, final_time
             
     except Exception as e:
