@@ -41,6 +41,21 @@ def decrypt_data(private_key, encrypted_b64):
     
     pad_length = decrypted_padded[-1]
     return decrypted_padded[:-pad_length]
+def output_reader(proc, output_file, queue, monitor):
+    try:
+        while not monitor.stop_flag:
+            chunk = proc.stdout.read1(8192)
+            if not chunk and proc.poll() is not None:
+                break
+            if chunk:
+                queue.put(('output', chunk))
+        remaining = proc.stdout.read()
+        if remaining:
+            queue.put(('output', remaining))
+    except Exception as e:
+        queue.put(('error', str(e)))
+    finally:
+        queue.put(('done', None))
 
 def normalize_text(text_path):
     with open(text_path, 'r') as f:
