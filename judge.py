@@ -45,7 +45,6 @@ def decrypt_data(private_key, encrypted_b64):
 def normalize_text(text_path):
     with open(text_path, 'r') as f:
         lines = f.read().strip().split('\n')
-        #print(lines)
     return '\n'.join(line.rstrip() for line in lines)
 
 class ProcessMonitor:
@@ -53,22 +52,16 @@ class ProcessMonitor:
         self.time_limit = time_limit
         self.memory_limit = memory_limit
         self.max_output_size = max_output_size
-        self.start_time = None
         self.output_size = 0
         self.max_memory_used = 0
         self.error = None
         self.stop_flag = False
         
-    def check_limits(self, proc, psutil_proc):
-        #if not self.start_time:
-        #    self.start_time = time.time()
-        elapsed = (time.time() - self.start_time) * 1000
-        print(str(elapsed)+"ms")
-        print(time.time())
-        print(self.start_time)
-        if elapsed > self.time_limit:
+    def check_limits(self, proc, psutil_proc, elapsed_time):
+        if elapsed_time > self.time_limit:
             self.error = "Time Limit Exceeded"
             return False
+            
         try:
             memory_info = psutil_proc.memory_info()
             memory_used = memory_info.rss / 1024 / 1024
@@ -89,25 +82,10 @@ class ProcessMonitor:
             return False
         return True
 
-def output_reader(proc, output_file, queue, monitor):
-    try:
-        while not monitor.stop_flag:
-            chunk = proc.stdout.read1(8192)  # 使用read1替代read
-            if not chunk and proc.poll() is not None:  # 检查进程是否结束
-                break
-            if chunk:
-                queue.put(('output', chunk))
-        # 确保读取所有剩余输出
-        remaining = proc.stdout.read()
-        if remaining:
-            queue.put(('output', remaining))
-    except Exception as e:
-        queue.put(('error', str(e)))
-    finally:
-        queue.put(('done', None))
 def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
     MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
+    start_time = time.time()  # 时间计算移到这里
     
     try:
         with open(input_path, 'rb') as input_file:
@@ -116,10 +94,9 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                 stdin=input_file,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=1,  # 使用行缓冲
-                universal_newlines=False  # 使用二进制模式
+                bufsize=1,
+                universal_newlines=False
             )
-            monitor.start_time=time.time()
         psutil_proc = psutil.Process(proc.pid)
         queue = Queue()
         reader_thread = threading.Thread(
@@ -132,10 +109,14 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         with open(output_path, 'wb') as output_file:
             output_buffer = []
             while True:
+                current_time = time.time()
+                elapsed_time = (current_time - start_time) * 1000  # 计算经过的时间
+                
                 if proc.poll() is not None:
-                    # 进程结束后，等待一小段时间确保所有输出都被读取
+                    if elapsed_time > time_limit:
+                        proc.kill()
+                        return False, "Time Limit Exceeded", elapsed_time
                     time.sleep(0.1)
-                    # 继续处理队列中的所有剩余输出
                     while True:
                         try:
                             msg_type, data = queue.get_nowait()
@@ -143,17 +124,17 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                                 output_buffer.append(data)
                             elif msg_type == 'error':
                                 proc.kill()
-                                return False, f"Runtime Error: {data}"
+                                return False, f"Runtime Error: {data}", elapsed_time
                             elif msg_type == 'done':
                                 break
                         except Empty:
                             break
                             
                     if proc.returncode < 0:
-                        return False, "Runtime Error: Program terminated by signal"
+                        return False, "Runtime Error: Program terminated by signal", elapsed_time
                     elif proc.returncode > 0:
                         stderr_output = proc.stderr.read().decode('utf-8', errors='ignore')
-                        return False, f"Runtime Error: Program exited with code {proc.returncode}"
+                        return False, f"Runtime Error: Program exited with code {proc.returncode}", elapsed_time
                     break
                     
                 try:
@@ -162,22 +143,19 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                         output_buffer.append(data)
                         if not monitor.update_output_size(len(data)):
                             proc.kill()
-                            return False, monitor.error
+                            return False, monitor.error, elapsed_time
                     elif msg_type == 'error':
                         proc.kill()
-                        return False, f"Runtime Error: {data}"
+                        return False, f"Runtime Error: {data}", elapsed_time
                     elif msg_type == 'done':
                         break
                 except Empty:
                     pass
                 
-                if not monitor.check_limits(proc, psutil_proc):
+                if not monitor.check_limits(proc, psutil_proc, elapsed_time):
                     proc.kill()
-                    return False, monitor.error
+                    return False, monitor.error, elapsed_time
             
-            # 将所有输出一次性写入文件
-            if not monitor.check_limits(proc, psutil_proc):
-                    return False, monitor.error
             if output_buffer:
                 all_output = b''.join(output_buffer)
                 output_file.write(all_output)
@@ -185,11 +163,13 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
         monitor.stop_flag = True
         reader_thread.join(timeout=1.0)
         
-        return True, None
+        final_time = (time.time() - start_time) * 1000
+        return True, None, final_time
             
     except Exception as e:
-        return False, f"Runtime Error: {str(e)}"
-
+        final_time = (time.time() - start_time) * 1000
+        return False, f"Runtime Error: {str(e)}", final_time
+        
 def judge(private_key_path, problem_dir, solution_file):
     config = load_problem_config(problem_dir)
     time_limit = config.get('timeLimit', 1000)
@@ -212,6 +192,7 @@ def judge(private_key_path, problem_dir, solution_file):
     has_tle = False
     has_mle = False
     has_re = False
+    
     with tempfile.TemporaryDirectory() as temp_dir:
         for filename in sorted(os.listdir(problem_dir)):
             if filename.endswith('.in.enc'):
@@ -219,19 +200,22 @@ def judge(private_key_path, problem_dir, solution_file):
                 testcase = filename[:-7]
                 input_file = os.path.join(problem_dir, filename)
                 output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
+                
                 with open(input_file, 'rb') as f:
                     input_data = decrypt_data(private_key, f.read())
                 temp_input = os.path.join(temp_dir, f'{testcase}.in')
                 with open(temp_input, 'wb') as f:
                     f.write(input_data)
+                
                 with open(output_file, 'rb') as f:
                     expected_output = decrypt_data(private_key, f.read())
                 temp_expected = os.path.join(temp_dir, f'{testcase}.expected')
                 with open(temp_expected, 'wb') as f:
                     f.write(expected_output)
+                
                 temp_output = os.path.join(temp_dir, f'{testcase}.out')
                 
-                success, error = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
+                success, error, execution_time = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
                 
                 if error:
                     if "Time Limit Exceeded" in error:
@@ -240,18 +224,17 @@ def judge(private_key_path, problem_dir, solution_file):
                         has_mle = True
                     elif "Runtime Error" in error:
                         has_re = True
-                    results.append(f'测试点 {testcase}: {error}')
+                    results.append(f'测试点 {testcase}: {error} ({execution_time:.0f}ms)')
                     continue
                 
                 expected = normalize_text(temp_expected)
                 actual = normalize_text(temp_output)
-                #print(expected)
-                #print(actual)
+                
                 if expected == actual:
-                    results.append(f'测试点 {testcase}: AC')
+                    results.append(f'测试点 {testcase}: AC ({execution_time:.0f}ms)')
                     ac_cases += 1
                 else:
-                    results.append(f'测试点 {testcase}: WA')
+                    results.append(f'测试点 {testcase}: WA ({execution_time:.0f}ms)')
     
     if ac_cases == total_cases:
         status = "AC"
