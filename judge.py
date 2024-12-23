@@ -176,6 +176,8 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                     return False, monitor.error
             
             # 将所有输出一次性写入文件
+            if not monitor.check_limits(proc, psutil_proc):
+                    return False, monitor.error
             if output_buffer:
                 all_output = b''.join(output_buffer)
                 output_file.write(all_output)
