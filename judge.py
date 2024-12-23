@@ -210,62 +210,67 @@ def judge(private_key_path, problem_dir, solution_file):
     has_mle = False
     has_re = False
     
-    # 获取所有测试用例并排序
-    testcases = []
-    for filename in os.listdir(problem_dir):
-        if filename.endswith('.in.enc'):
-            testcases.append(filename[:-7])
-    testcases.sort()
-    
     with tempfile.TemporaryDirectory() as temp_dir:
-        # 线性执行每个测试用例
-        for testcase in testcases:
-            total_cases += 1
-            input_file = os.path.join(problem_dir, f'{testcase}.in.enc')
-            output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
-            
-            # 解密输入文件
+        # 找到第一个测试样例进行预热
+        first_testcase = None
+        for filename in sorted(os.listdir(problem_dir)):
+            if filename.endswith('.in.enc'):
+                first_testcase = filename[:-7]
+                break
+                
+        if first_testcase:
+            # 预热运行
+            input_file = os.path.join(problem_dir, f'{first_testcase}.in.enc')
             with open(input_file, 'rb') as f:
                 input_data = decrypt_data(private_key, f.read())
-            temp_input = os.path.join(temp_dir, f'{testcase}.in')
+            temp_input = os.path.join(temp_dir, f'{first_testcase}.in')
             with open(temp_input, 'wb') as f:
                 f.write(input_data)
-            
-            # 解密输出文件
-            with open(output_file, 'rb') as f:
-                expected_output = decrypt_data(private_key, f.read())
-            temp_expected = os.path.join(temp_dir, f'{testcase}.expected')
-            with open(temp_expected, 'wb') as f:
-                f.write(expected_output)
-            
-            temp_output = os.path.join(temp_dir, f'{testcase}.out')
-            
-            # 运行当前测试用例
-            success, error, execution_time = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
-            
-            if error:
-                if "Time Limit Exceeded" in error:
-                    has_tle = True
-                elif "Memory Limit Exceeded" in error:
-                    has_mle = True
-                elif "Runtime Error" in error:
-                    has_re = True
-                results.append(f'测试点 {testcase}: {error} ({execution_time:.0f}ms)')
-                continue
-            
-            expected = normalize_text(temp_expected)
-            actual = normalize_text(temp_output)
-            
-            if expected == actual:
-                results.append(f'测试点 {testcase}: AC ({execution_time:.0f}ms)')
-                ac_cases += 1
-            else:
-                results.append(f'测试点 {testcase}: WA ({execution_time:.0f}ms)')
+            temp_output = os.path.join(temp_dir, f'{first_testcase}.out')
+            run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
+
+        # 正式评测
+        for filename in sorted(os.listdir(problem_dir)):
+            if filename.endswith('.in.enc'):
+                total_cases += 1
+                testcase = filename[:-7]
+                input_file = os.path.join(problem_dir, filename)
+                output_file = os.path.join(problem_dir, f'{testcase}.out.enc')
                 
-            # 清理当前测试用例的临时文件
-            for f in [temp_input, temp_expected, temp_output]:
-                if os.path.exists(f):
-                    os.remove(f)
+                with open(input_file, 'rb') as f:
+                    input_data = decrypt_data(private_key, f.read())
+                temp_input = os.path.join(temp_dir, f'{testcase}.in')
+                with open(temp_input, 'wb') as f:
+                    f.write(input_data)
+                
+                with open(output_file, 'rb') as f:
+                    expected_output = decrypt_data(private_key, f.read())
+                temp_expected = os.path.join(temp_dir, f'{testcase}.expected')
+                with open(temp_expected, 'wb') as f:
+                    f.write(expected_output)
+                
+                temp_output = os.path.join(temp_dir, f'{testcase}.out')
+                
+                success, error, execution_time = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
+                
+                if error:
+                    if "Time Limit Exceeded" in error:
+                        has_tle = True
+                    elif "Memory Limit Exceeded" in error:
+                        has_mle = True
+                    elif "Runtime Error" in error:
+                        has_re = True
+                    results.append(f'测试点 {testcase}: {error} ({execution_time:.0f}ms)')
+                    continue
+                
+                expected = normalize_text(temp_expected)
+                actual = normalize_text(temp_output)
+                
+                if expected == actual:
+                    results.append(f'测试点 {testcase}: AC ({execution_time:.0f}ms)')
+                    ac_cases += 1
+                else:
+                    results.append(f'测试点 {testcase}: WA ({execution_time:.0f}ms)')
     
     if ac_cases == total_cases:
         status = "AC"
@@ -281,6 +286,7 @@ def judge(private_key_path, problem_dir, solution_file):
         status = "WA"
     
     return '\n'.join(results), status
+
 if __name__ == '__main__':
     if len(sys.argv) != 4:
         print("Usage: python judge.py <private_key_file> <problem_dir> <solution_file>")
