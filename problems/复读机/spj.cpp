@@ -8,7 +8,7 @@ char* read_file_content(FILE* file) {
     long length = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    char* content = malloc(length + 1);
+    char* content = (char *)malloc(length + 1);
     if (!content) {
         return NULL;  // 内存分配失败
     }
