@@ -247,7 +247,7 @@ def judge(private_key_path, problem_dir, solution_file):
     # Compile special judge if needed
     spj_path = None
     if spj_config:
-        spj_source = os.path.join(problem_dir, 'spj.c')
+        spj_source = os.path.join(problem_dir, 'spj.cpp')
         spj_path = './spj'
         spj_compile = subprocess.run(['g++', spj_source, '-o', spj_path, '-O2'])
         if spj_compile.returncode != 0:
