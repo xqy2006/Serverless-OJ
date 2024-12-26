@@ -231,7 +231,7 @@ def judge(private_key_path, problem_dir, solution_file):
     config = load_problem_config(problem_dir)
     time_limit = config.get('timeLimit', 1000)
     memory_limit = config.get('memoryLimit', 256)
-    spj_config = config.get('specialJudge', False)
+    spj_config = config.get('specialJudge', 0)
     with open(private_key_path, 'rb') as f:
         private_key = serialization.load_pem_private_key(
             f.read(),
@@ -246,7 +246,7 @@ def judge(private_key_path, problem_dir, solution_file):
     
     # Compile special judge if needed
     spj_path = None
-    if spj_config:
+    if spj_config==1:
         spj_source = os.path.join(problem_dir, 'spj.cpp')
         spj_path = './spj'
         spj_compile = subprocess.run(['g++', spj_source, '-o', spj_path, '-O2'])
