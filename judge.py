@@ -100,7 +100,43 @@ class ProcessMonitor:
             self.error = "Output Limit Exceeded"
             return False
         return True
-
+def run_spj(spj_path, input_path, output_path, answer_path, time_limit, memory_limit):
+    monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
+    start_time = time.time()
+    
+    try:
+        proc = subprocess.Popen(
+            [spj_path, input_path, output_path, answer_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        
+        psutil_proc = psutil.Process(proc.pid)
+        
+        while proc.poll() is None:
+            current_time = time.time()
+            elapsed_time = (current_time - start_time) * 1000
+            
+            if not monitor.check_limits(proc, psutil_proc, elapsed_time):
+                proc.kill()
+                return False, monitor.error, elapsed_time
+                
+            time.sleep(0.001)
+            
+        final_time = (time.time() - start_time) * 1000
+        
+        if proc.returncode == 0:
+            return True, None, final_time
+        elif proc.returncode == 1:
+            return False, "Wrong Answer", final_time
+        else:
+            stderr = proc.stderr.read()
+            return False, f"Special Judge Error: {stderr}", final_time
+            
+    except Exception as e:
+        final_time = (time.time() - start_time) * 1000
+        return False, f"Special Judge Error: {str(e)}", final_time
 def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
     MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
@@ -195,17 +231,27 @@ def judge(private_key_path, problem_dir, solution_file):
     config = load_problem_config(problem_dir)
     time_limit = config.get('timeLimit', 1000)
     memory_limit = config.get('memoryLimit', 256)
-    
+    spj_config = config.get('specialJudge', False)
     with open(private_key_path, 'rb') as f:
         private_key = serialization.load_pem_private_key(
             f.read(),
             password=None
         )
     
+    # Compile solution
     exe_path = './solution'
-    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2','-Wall','-fno-asm','-lstdc++','-lm','-march=native','-D_IONBF','-Wno-unused-result'])
+    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2', '-Wall', '-fno-asm', '-lstdc++', '-lm', '-march=native', '-D_IONBF', '-Wno-unused-result'])
     if compile_result.returncode != 0:
         return "Compilation Error", "CE"
+    
+    # Compile special judge if needed
+    spj_path = None
+    if spj_config:
+        spj_source = os.path.join(problem_dir, 'spj.c')
+        spj_path = './spj'
+        spj_compile = subprocess.run(['g++', spj_source, '-o', spj_path, '-O2'])
+        if spj_compile.returncode != 0:
+            return "Special Judge Compilation Error", "SE"
     
     results = []
     total_cases = 0
@@ -267,14 +313,38 @@ def judge(private_key_path, problem_dir, solution_file):
                     results.append(f'测试点 {testcase}: {error} ({execution_time:.0f}ms)')
                     continue
                 
-                expected = normalize_text(temp_expected)
-                actual = normalize_text(temp_output)
-                
-                if expected == actual:
-                    results.append(f'测试点 {testcase}: AC ({execution_time:.0f}ms)')
-                    ac_cases += 1
+                if spj_path:
+                    # 使用special judge
+                    spj_success, spj_error, spj_time = run_spj(
+                        spj_path,
+                        temp_input,
+                        temp_output,
+                        temp_expected,
+                        60000,
+                        1024
+                    )
+                    
+                    if spj_error:
+                        results.append(f'测试点 {testcase}: {spj_error} ({execution_time:.0f}ms)')
+                        if "Special Judge Error" in spj_error:
+                            return '\n'.join(results), "SE"
+                        continue
+                    
+                    if spj_success:
+                        results.append(f'测试点 {testcase}: AC ({execution_time:.0f}ms)')
+                        ac_cases += 1
+                    else:
+                        results.append(f'测试点 {testcase}: WA ({execution_time:.0f}ms)')
                 else:
-                    results.append(f'测试点 {testcase}: WA ({execution_time:.0f}ms)')
+                    # 普通判题
+                    expected = normalize_text(temp_expected)
+                    actual = normalize_text(temp_output)
+                    
+                    if expected == actual:
+                        results.append(f'测试点 {testcase}: AC ({execution_time:.0f}ms)')
+                        ac_cases += 1
+                    else:
+                        results.append(f'测试点 {testcase}: WA ({execution_time:.0f}ms)')
     
     if ac_cases == total_cases:
         status = "AC"
