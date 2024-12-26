@@ -1,0 +1,9 @@
+{
+  "id": 15,
+  "title": "复读机",
+  "memoryLimit": 256,
+  "timeLimit": 1000,
+  "difficulty": "easy",
+  "author": "xqy2006",
+  "specialJudge": 1
+}
