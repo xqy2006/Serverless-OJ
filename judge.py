@@ -101,6 +101,7 @@ class ProcessMonitor:
             return False
         return True
 def run_spj(spj_path, input_path, output_path, answer_path, time_limit, memory_limit):
+    MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
     start_time = time.time()
     
