@@ -81,6 +81,7 @@ jobs:
           problem_json = json.loads(content_parts[0])
           readme_content = content_parts[1]
           test_data = content_parts[2]
+          spj_source = content_parts[3]
           
           # 获取题目名称
           problem_name = problem_json['title']
@@ -96,6 +97,10 @@ jobs:
           # 保存README.md
           with open(f'{problem_dir}/README.md', 'w', encoding='utf-8') as f:
               f.write(readme_content)
+
+          # 保存spj.cpp
+          with open(f'{problem_dir}/spj.cpp', 'w', encoding='utf-8') as f:
+              f.write(spj_source)
           
           # 创建临时目录处理测试数据
           with tempfile.TemporaryDirectory() as temp_dir:
