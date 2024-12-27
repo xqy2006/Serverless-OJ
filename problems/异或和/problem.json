@@ -1,0 +1,9 @@
+{
+  "id": 5,
+  "title": "异或和",
+  "memoryLimit": 16,
+  "timeLimit": 1000,
+  "difficulty": "easy",
+  "author": "xqy2006",
+  "specialJudge": 0
+}
