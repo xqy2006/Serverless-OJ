@@ -1,0 +1,9 @@
+{
+  "id": 6,
+  "title": "排列计数",
+  "memoryLimit": 256,
+  "timeLimit": 1000,
+  "difficulty": "hard",
+  "author": "xqy2006",
+  "specialJudge": 0
+}
