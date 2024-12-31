@@ -114,7 +114,10 @@ def run_spj(spj_path, input_path, output_path, answer_path, time_limit, memory_l
         )
         
         psutil_proc = psutil.Process(proc.pid)
-        
+        try:
+            psutil_proc.cpu_affinity([0])  # 只允许使用CPU 0
+        except:
+            pass  # 如果设置失败，继续执行
         while proc.poll() is None:
             current_time = time.time()
             elapsed_time = (current_time - start_time) * 1000
@@ -154,6 +157,10 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
                 universal_newlines=False
             )
         psutil_proc = psutil.Process(proc.pid)
+        try:
+            psutil_proc.cpu_affinity([0])  # 只允许使用CPU 0
+        except:
+            pass  # 如果设置失败，继续执行
         queue = Queue()
         reader_thread = threading.Thread(
             target=output_reader,
