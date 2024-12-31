@@ -13,15 +13,50 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
       - name: Generate list.txt
         run: |
-          # 确保 ./problems 目录存在
-          if [ -d ./problems ]; then
-            # 查找子目录并写入 list.txt
-            find ./problems -mindepth 1 -maxdepth 1 -type d -exec basename {} \; > ./problems/list.txt
-          else
-            echo "No problems directory found" > ./problems/list.txt
-          fi
+          python - <<EOF
+          import json
+          import os
+          from pathlib import Path
+
+          problems_dir = Path('./problems')
+          if not problems_dir.exists():
+              with open(problems_dir / 'list.txt', 'w') as f:
+                  f.write("No problems directory found")
+              exit(0)
+
+          # 存储 id 和 title 的列表
+          problem_list = []
+
+          # 遍历 problems 目录
+          for problem_dir in problems_dir.iterdir():
+              if problem_dir.is_dir():
+                  json_file = problem_dir / 'problem.json'
+                  if json_file.exists():
+                      try:
+                          with open(json_file, 'r', encoding='utf-8') as f:
+                              data = json.load(f)
+                              problem_id = problem_dir.name
+                              title = data.get('title', '')
+                              if title:  # 只有当 title 存在时才添加
+                                  problem_list.append((int(problem_id), title))
+                      except (json.JSONDecodeError, ValueError) as e:
+                          print(f"Error processing {json_file}: {e}")
+
+          # 按 id 排序
+          problem_list.sort(key=lambda x: x[0])
+
+          # 写入文件
+          with open(problems_dir / 'list.txt', 'w', encoding='utf-8') as f:
+              for _, title in problem_list:
+                  f.write(f"{title}\n")
+          EOF
 
       - name: Commit and push changes
         run: |
