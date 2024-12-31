@@ -1,6 +1,6 @@
 {
   "id": 6,
-  "title": "排列计数",
+  "title": "排列数",
   "memoryLimit": 256,
   "timeLimit": 1000,
   "difficulty": "hard",
