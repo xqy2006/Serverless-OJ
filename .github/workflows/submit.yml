@@ -85,7 +85,8 @@ jobs:
           
           # 获取题目名称
           problem_name = problem_json['title']
-          problem_dir = f'problems/{problem_name}'
+          problem_id = problem_json['id']
+          problem_dir = f'problems/{problem_id}'
           
           # 创建题目目录
           os.makedirs(problem_dir, exist_ok=True)
@@ -161,7 +162,7 @@ jobs:
           
               
           # 只添加problems目录
-          os.system(f'git add problems/{problem_name}')
+          os.system(f'git add problems/{problem_id}')
           os.system('git commit -m "Add new problem: ' + problem_name + '"')
           os.system(f'git push origin {branch_name}')
           
