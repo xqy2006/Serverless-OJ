@@ -101,8 +101,19 @@ jobs:
             gh issue comment ${{ github.event.issue.number }} --body "检测到代码抄袭行为！"
             gh issue close ${{ github.event.issue.number }}
           else
+            # 加载 list.txt 文件
+            curl -O https://raw.githubusercontent.com/your-repo/your-branch/problems/list.txt
+            
+            # 计算题目 ID
+            ID=$(grep -n "^$PROBLEM_NAME$" list.txt | cut -d: -f1)
+            
+            if [ -z "$ID" ]; then
+              echo "题目不存在: $PROBLEM_NAME" >&2
+              exit 1
+            fi
+            
             # 运行评测
-            RESULT=$(python3 judge.py private.pem "problems/$PROBLEM_NAME" solution.cpp)
+            RESULT=$(python3 judge.py private.pem "problems/$ID" solution.cpp)
             
             # 回复结果
             gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
