@@ -104,6 +104,9 @@ jobs:
             # 加载 list.txt 文件
             curl -O https://raw.githubusercontent.com/your-repo/your-branch/problems/list.txt
             
+            # 处理 list.txt，移除 \r 确保兼容性
+            sed -i 's/\r//' list.txt
+            
             # 计算题目 ID
             ID=$(grep -n "^$PROBLEM_NAME$" list.txt | cut -d: -f1)
             
