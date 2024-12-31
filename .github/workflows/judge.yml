@@ -101,14 +101,12 @@ jobs:
             gh issue comment ${{ github.event.issue.number }} --body "检测到代码抄袭行为！"
             gh issue close ${{ github.event.issue.number }}
           else
-            # 加载 list.txt 文件
-            curl -O https://raw.githubusercontent.com/your-repo/your-branch/problems/list.txt
             
             # 处理 list.txt，移除 \r 确保兼容性
-            sed -i 's/\r//' list.txt
+            sed -i 's/\r//' ./problems/list.txt
             
             # 计算题目 ID
-            ID=$(grep -n "^$PROBLEM_NAME$" list.txt | cut -d: -f1)
+            ID=$(grep -n "^$PROBLEM_NAME$" ./problems/list.txt | cut -d: -f1)
             
             if [ -z "$ID" ]; then
               echo "题目不存在: $PROBLEM_NAME" >&2
