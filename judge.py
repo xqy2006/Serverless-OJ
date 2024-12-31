@@ -259,6 +259,7 @@ def judge(private_key_path, problem_dir, solution_file):
     ac_cases = 0
     has_tle = False
     has_mle = False
+    has_ole = False
     has_re = False
     
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -309,6 +310,8 @@ def judge(private_key_path, problem_dir, solution_file):
                         has_tle = True
                     elif "Memory Limit Exceeded" in error:
                         has_mle = True
+                    elif "Output Limit Exceeded" in error:
+                        has_ole = True
                     elif "Runtime Error" in error:
                         has_re = True
                     results.append(f'测试点 {testcase}: {error} ({execution_time:.0f}ms)')
@@ -353,6 +356,8 @@ def judge(private_key_path, problem_dir, solution_file):
         status = "MLE"
     elif has_tle:
         status = "TLE"
+    elif has_ole:
+        status = "OLE"
     elif has_re:
         status = "RE"
     elif ac_cases > 0:
