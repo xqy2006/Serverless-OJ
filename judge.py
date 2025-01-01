@@ -13,11 +13,13 @@ from cryptography.hazmat.backends import default_backend
 import tempfile
 import threading
 from queue import Queue, Empty
+import re
+
 def natural_sort_key(s):
-    import re
     def atoi(text):
         return int(text) if text.isdigit() else text
     return [atoi(c) for c in re.split(r'(\d+)', s)]
+
 def load_problem_config(problem_dir):
     config_path = os.path.join(problem_dir, 'problem.json')
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -45,6 +47,62 @@ def decrypt_data(private_key, encrypted_b64):
     
     pad_length = decrypted_padded[-1]
     return decrypted_padded[:-pad_length]
+
+def compile_solution(solution_file, lang_type):
+    if lang_type == "cpp" or lang_type == "c":
+        exe_path = './solution'
+        compile_result = subprocess.run(
+            ['gcc', solution_file, '-o', exe_path, '-O2', '-Wall', '-fno-asm', 
+             '-lstdc++', '-lm', '-march=native', '-D_IONBF', '-Wno-unused-result']
+        )
+        return compile_result.returncode == 0, exe_path
+    
+    elif lang_type == "java":
+        with open(solution_file, 'r') as f:
+            content = f.read()
+            class_match = re.search(r'public\s+class\s+(\w+)', content)
+            if not class_match:
+                return False, None
+            class_name = class_match.group(1)
+        
+        compile_result = subprocess.run(['javac', solution_file])
+        return compile_result.returncode == 0, class_name
+    
+    elif lang_type == "python":
+        try:
+            compile(open(solution_file, 'r').read(), solution_file, 'exec')
+            return True, solution_file
+        except:
+            return False, None
+    
+    return False, None
+
+def compile_spj(spj_source, lang_type):
+    if lang_type == "cpp" or lang_type == "c":
+        spj_path = './spj'
+        spj_compile = subprocess.run(['g++', spj_source, '-o', spj_path, '-O2'])
+        return spj_compile.returncode == 0, spj_path
+    
+    elif lang_type == "java":
+        with open(spj_source, 'r') as f:
+            content = f.read()
+            class_match = re.search(r'public\s+class\s+(\w+)', content)
+            if not class_match:
+                return False, None
+            class_name = class_match.group(1)
+        
+        compile_result = subprocess.run(['javac', spj_source])
+        return compile_result.returncode == 0, class_name
+    
+    elif lang_type == "python":
+        try:
+            compile(open(spj_source, 'r').read(), spj_source, 'exec')
+            return True, spj_source
+        except:
+            return False, None
+    
+    return False, None
+
 def output_reader(proc, output_file, queue, monitor):
     try:
         while not monitor.stop_flag:
@@ -100,14 +158,45 @@ class ProcessMonitor:
             self.error = "Output Limit Exceeded"
             return False
         return True
-def run_spj(spj_path, input_path, output_path, answer_path, time_limit, memory_limit):
+
+def run_program(program_path, lang_type, input_path, output_path, time_limit, memory_limit):
+    if lang_type == "cpp" or lang_type == "c":
+        cmd = [program_path]
+    elif lang_type == "java":
+        cmd = ['java', program_path]
+        #time_limit *= 1.5
+        #memory_limit *= 2
+    elif lang_type == "python":
+        cmd = ['python3', program_path]
+        #time_limit *= 2
+    else:
+        return False, "Unsupported Language", 0
+
+    return run_testcase(cmd, input_path, output_path, time_limit, memory_limit)
+
+def run_spj_program(spj_path, lang_type, input_path, output_path, answer_path, time_limit, memory_limit):
+    if lang_type == "cpp" or lang_type == "c":
+        cmd = [spj_path, input_path, output_path, answer_path]
+    elif lang_type == "java":
+        cmd = ['java', spj_path, input_path, output_path, answer_path]
+        time_limit *= 1.5
+        memory_limit *= 2
+    elif lang_type == "python":
+        cmd = ['python3', spj_path, input_path, output_path, answer_path]
+        time_limit *= 2
+    else:
+        return False, "Unsupported Language", 0
+
+    return run_spj(cmd, time_limit, memory_limit)
+
+def run_spj(cmd, time_limit, memory_limit):
     MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
     start_time = time.time()
     
     try:
         proc = subprocess.Popen(
-            [spj_path, input_path, output_path, answer_path],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True
@@ -115,9 +204,10 @@ def run_spj(spj_path, input_path, output_path, answer_path, time_limit, memory_l
         
         psutil_proc = psutil.Process(proc.pid)
         try:
-            psutil_proc.cpu_affinity([0])  # 只允许使用CPU 0
+            psutil_proc.cpu_affinity([0])
         except:
-            pass  # 如果设置失败，继续执行
+            pass
+
         while proc.poll() is None:
             current_time = time.time()
             elapsed_time = (current_time - start_time) * 1000
@@ -141,26 +231,29 @@ def run_spj(spj_path, input_path, output_path, answer_path, time_limit, memory_l
     except Exception as e:
         final_time = (time.time() - start_time) * 1000
         return False, f"Special Judge Error: {str(e)}", final_time
-def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
+
+def run_testcase(cmd, input_path, output_path, time_limit, memory_limit):
     MAX_OUTPUT_SIZE = 50 * 1024 * 1024
     monitor = ProcessMonitor(time_limit, memory_limit, MAX_OUTPUT_SIZE)
-    start_time = time.time()  # 时间计算移到这里
+    start_time = time.time()
     
     try:
         with open(input_path, 'rb') as input_file:
             proc = subprocess.Popen(
-                [exe_path],
+                cmd,
                 stdin=input_file,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=1,
                 universal_newlines=False
             )
+        
         psutil_proc = psutil.Process(proc.pid)
         try:
-            psutil_proc.cpu_affinity([0])  # 只允许使用CPU 0
+            psutil_proc.cpu_affinity([0])
         except:
-            pass  # 如果设置失败，继续执行
+            pass
+
         queue = Queue()
         reader_thread = threading.Thread(
             target=output_reader,
@@ -173,13 +266,13 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
             output_buffer = []
             while True:
                 current_time = time.time()
-                elapsed_time = (current_time - start_time) * 1000  # 计算经过的时间
+                elapsed_time = (current_time - start_time) * 1000
                 
                 if proc.poll() is not None:
                     if elapsed_time > time_limit:
                         proc.kill()
                         return False, "Time Limit Exceeded", elapsed_time
-                    time.sleep(0.001)
+                    
                     while True:
                         try:
                             msg_type, data = queue.get_nowait()
@@ -234,12 +327,15 @@ def run_testcase(exe_path, input_path, output_path, time_limit, memory_limit):
     except Exception as e:
         final_time = (time.time() - start_time) * 1000
         return False, f"Runtime Error: {str(e)}", final_time
-        
-def judge(private_key_path, problem_dir, solution_file):
+
+def judge(private_key_path, problem_dir, solution_file, lang_type):
     config = load_problem_config(problem_dir)
     time_limit = config.get('timeLimit', 1000)
     memory_limit = config.get('memoryLimit', 256)
-    spj_config = config.get('specialJudge', 0)
+    spj_config = config.get('specialJudge', {})
+    spj_enabled = spj_config.get('enabled', False)
+    spj_lang = spj_config.get('language', 'cpp')
+    
     with open(private_key_path, 'rb') as f:
         private_key = serialization.load_pem_private_key(
             f.read(),
@@ -247,18 +343,16 @@ def judge(private_key_path, problem_dir, solution_file):
         )
     
     # Compile solution
-    exe_path = './solution'
-    compile_result = subprocess.run(['gcc', solution_file, '-o', exe_path, '-O2', '-Wall', '-fno-asm', '-lstdc++', '-lm', '-march=native', '-D_IONBF', '-Wno-unused-result'])
-    if compile_result.returncode != 0:
+    compile_success, program_path = compile_solution(solution_file, lang_type)
+    if not compile_success:
         return "Compilation Error", "CE"
     
     # Compile special judge if needed
     spj_path = None
-    if spj_config==1:
-        spj_source = os.path.join(problem_dir, 'spj.cpp')
-        spj_path = './spj'
-        spj_compile = subprocess.run(['g++', spj_source, '-o', spj_path, '-O2'])
-        if spj_compile.returncode != 0:
+    if spj_enabled:
+        spj_source = os.path.join(problem_dir, f'spj.{spj_lang}')
+        spj_success, spj_path = compile_spj(spj_source, spj_lang)
+        if not spj_success:
             return "Special Judge Compilation Error", "SE"
     
     results = []
@@ -286,7 +380,7 @@ def judge(private_key_path, problem_dir, solution_file):
             with open(temp_input, 'wb') as f:
                 f.write(input_data)
             temp_output = os.path.join(temp_dir, f'{first_testcase}.out')
-            run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
+            run_program(program_path, lang_type, temp_input, temp_output, time_limit, memory_limit)
 
         # 正式评测
         for filename in sorted(os.listdir(problem_dir), key=natural_sort_key):
@@ -310,7 +404,14 @@ def judge(private_key_path, problem_dir, solution_file):
                 
                 temp_output = os.path.join(temp_dir, f'{testcase}.out')
                 
-                success, error, execution_time = run_testcase(exe_path, temp_input, temp_output, time_limit, memory_limit)
+                success, error, execution_time = run_program(
+                    program_path, 
+                    lang_type, 
+                    temp_input, 
+                    temp_output, 
+                    time_limit, 
+                    memory_limit
+                )
                 
                 if error:
                     if "Time Limit Exceeded" in error:
@@ -326,13 +427,14 @@ def judge(private_key_path, problem_dir, solution_file):
                 
                 if spj_path:
                     # 使用special judge
-                    spj_success, spj_error, spj_time = run_spj(
+                    spj_success, spj_error, spj_time = run_spj_program(
                         spj_path,
+                        spj_lang,
                         temp_input,
                         temp_output,
                         temp_expected,
-                        60000,
-                        1024
+                        60000,  # SPJ时间限制
+                        1024    # SPJ内存限制
                     )
                     
                     if spj_error:
@@ -375,11 +477,11 @@ def judge(private_key_path, problem_dir, solution_file):
     return '\n'.join(results), status
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        print("Usage: python judge.py <private_key_file> <problem_dir> <solution_file>")
+    if len(sys.argv) != 5:
+        print("Usage: python judge.py <private_key_file> <problem_dir> <solution_file> <lang_type>")
         sys.exit(1)
     
-    result, status = judge(sys.argv[1], sys.argv[2], sys.argv[3])
+    result, status = judge(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].lower())
     print(result)
     with open('judge_status.txt', 'w') as f:
         f.write(status)
