@@ -4,5 +4,9 @@
   "memoryLimit": 256,
   "timeLimit": 50,
   "difficulty": "medium",
-  "author": "xqy2006"
+  "author": "xqy2006",
+  "specialJudge": {
+        "enabled": false,
+        "language": "cpp"
+  }
 }

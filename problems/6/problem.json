@@ -5,5 +5,8 @@
   "timeLimit": 1000,
   "difficulty": "hard",
   "author": "xqy2006",
-  "specialJudge": 0
+  "specialJudge": {
+        "enabled": false,
+        "language": "cpp"
+  }
 }
