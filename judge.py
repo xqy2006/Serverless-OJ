@@ -177,7 +177,7 @@ def run_program(program_path, lang_type, input_path, output_path, time_limit, me
         #time_limit *= 1.5
         #memory_limit *= 2
     elif lang_type == "python":
-        cmd = ['python3', program_path]
+        cmd = ['python', program_path]
         #time_limit *= 2
     else:
         return False, "Unsupported Language", 0
@@ -192,7 +192,7 @@ def run_spj_program(spj_path, lang_type, input_path, output_path, answer_path, t
         time_limit *= 1.5
         memory_limit *= 2
     elif lang_type == "python":
-        cmd = ['python3', spj_path, input_path, output_path, answer_path]
+        cmd = ['python', spj_path, input_path, output_path, answer_path]
         time_limit *= 2
     else:
         return False, "Unsupported Language", 0
