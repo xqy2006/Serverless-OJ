@@ -76,15 +76,17 @@ jobs:
           decrypted = decrypted_padded[:-pad_length]
           
           content = decrypted.decode('utf-8')
-          username, code = content.split('\n', 1)
+          username, lang, code = content.split('\n', 2)
           
           issue_creator = os.environ['ISSUE_CREATOR']
           if username.strip() != issue_creator:
               with open('judge_result.txt', 'w') as f:
                   f.write('CHEATING')
           else:
-              with open('solution.cpp', 'wb') as f:
+              with open('solution.source', 'wb') as f:
                   f.write(code.encode('utf-8'))
+              with open('lang.txt', 'w') as f:
+                  f.write(lang.strip())
               with open('judge_result.txt', 'w') as f:
                   f.write('OK')
           "
@@ -112,9 +114,9 @@ jobs:
               echo "题目不存在: $PROBLEM_NAME" >&2
               exit 1
             fi
-            
+            LANG=$(cat lang.txt)
             # 运行评测
-            RESULT=$(python3 judge.py private.pem "problems/$ID" solution.cpp)
+            RESULT=$(python3 judge.py private.pem "problems/$ID" solution.source "$LANG")
             
             # 回复结果
             gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
