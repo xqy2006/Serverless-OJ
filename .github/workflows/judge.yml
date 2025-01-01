@@ -23,11 +23,6 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
           
-      - name: Configure Python Commands
-        run: |
-          New-Item -ItemType SymbolicLink -Path "C:\Python39\python.exe" -Target "C:\Python39\python3.exe" -Force
-          [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Python39", "Machine")
-        shell: powershell
           
       - name: Install dependencies
         run: |
