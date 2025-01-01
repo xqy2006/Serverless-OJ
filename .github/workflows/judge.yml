@@ -6,7 +6,7 @@ on:
 
 jobs:
   judge:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     if: contains(github.event.issue.title, '评测')
     
     steps:
@@ -15,7 +15,19 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.10'
+          
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          
+      - name: Configure Python Commands
+        run: |
+          New-Item -ItemType SymbolicLink -Path "C:\Python39\python.exe" -Target "C:\Python39\python3.exe" -Force
+          [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Python39", "Machine")
+        shell: powershell
           
       - name: Install dependencies
         run: |
@@ -27,16 +39,18 @@ jobs:
           PRIVATE_KEY: ${{ secrets.RSA_PRIVATE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_CREATOR: ${{ github.event.issue.user.login }}
+        shell: powershell
         run: |
           # 解析题目名称
-          PROBLEM_NAME=$(echo "${{ github.event.issue.title }}" | sed 's/评测//')
+          $PROBLEM_NAME = "${{ github.event.issue.title }}" -replace '评测',''
           
           # 保存私钥
-          echo "$PRIVATE_KEY" > private.pem
+          $env:PRIVATE_KEY | Out-File -Encoding utf8 private.pem
           
           # 解密提交的代码
-          echo "${{ github.event.issue.body }}" | base64 -d > encrypted_code
-          python3 -c "
+          [System.Convert]::FromBase64String("${{ github.event.issue.body }}") | Set-Content -Path encrypted_code -AsByteStream
+          
+          python -c "
           from cryptography.hazmat.primitives import serialization
           from cryptography.hazmat.primitives.asymmetric import padding
           from cryptography.hazmat.primitives import hashes
@@ -51,12 +65,10 @@ jobs:
           with open('encrypted_code', 'rb') as f:
               encrypted_data = f.read()
           
-          # 提取RSA加密的AES密钥(前256字节)，IV(接下来的16字节)和加密数据
           encrypted_key = encrypted_data[:256]
           iv = encrypted_data[256:272]
           encrypted_content = encrypted_data[272:]
           
-          # 解密AES密钥
           aes_key = private_key.decrypt(
               encrypted_key,
               padding.OAEP(
@@ -66,12 +78,10 @@ jobs:
               )
           )
           
-          # 使用AES解密数据
           cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv), backend=default_backend())
           decryptor = cipher.decryptor()
           decrypted_padded = decryptor.update(encrypted_content) + decryptor.finalize()
           
-          # 移除PKCS7 padding
           pad_length = decrypted_padded[-1]
           decrypted = decrypted_padded[:-pad_length]
           
@@ -92,54 +102,63 @@ jobs:
           "
           
           # 检查判定结果
-          JUDGE_RESULT=$(cat judge_result.txt)
+          $JUDGE_RESULT = Get-Content -Path judge_result.txt -Raw
           
-          if [ "$JUDGE_RESULT" = "CHEATING" ]; then
+          if ($JUDGE_RESULT -eq "CHEATING") {
             # 创建作弊标签
-            gh label create "CHEATING" --color "ff0000" || true
+            gh label create "CHEATING" --color "ff0000" 2>&1 | Out-Null
             
             # 添加作弊标签和回复
             gh issue edit ${{ github.event.issue.number }} --add-label "CHEATING"
             gh issue comment ${{ github.event.issue.number }} --body "检测到代码抄袭行为！"
             gh issue close ${{ github.event.issue.number }}
-          else
-            
-            # 处理 list.txt，移除 \r 确保兼容性
-            sed -i 's/\r//' ./problems/list.txt
+          } else {
+            # 处理 list.txt，移除 \r\n
+            (Get-Content ./problems/list.txt) | ForEach-Object { $_ -replace "`r`n","`n" } | Set-Content ./problems/list.txt -NoNewline
             
             # 计算题目 ID
-            ID=$(grep -n "^$PROBLEM_NAME$" ./problems/list.txt | cut -d: -f1)
+            $content = Get-Content ./problems/list.txt
+            $ID = 0
+            for($i=0; $i -lt $content.Length; $i++) {
+              if($content[$i] -eq $PROBLEM_NAME) {
+                $ID = $i + 1
+                break
+              }
+            }
             
-            if [ -z "$ID" ]; then
-              echo "题目不存在: $PROBLEM_NAME" >&2
+            if ($ID -eq 0) {
+              Write-Error "题目不存在: $PROBLEM_NAME"
               exit 1
-            fi
-            LANG=$(cat lang.txt)
+            }
+            
+            $LANG = Get-Content lang.txt
             # 运行评测
-            RESULT=$(python3 judge.py private.pem "problems/$ID" solution.cpp "$LANG")
+            $RESULT = python judge.py private.pem "problems/$ID" solution.cpp "$LANG"
             
             # 回复结果
             gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
             
             # 获取状态
-            STATUS=$(cat judge_status.txt)
+            $STATUS = Get-Content judge_status.txt
             
-            # 确保标签存在
-            create_label_if_not_exists() {
-              local label=$1
-              local color=$2
-              gh label list | grep -q "^$label\s" || gh label create "$label" --color "$color"
+            # 创建标签函数
+            function Create-LabelIfNotExists {
+              param($label, $color)
+              gh label list | Select-String "^$label\s" -Quiet
+              if (-not $?) {
+                gh label create "$label" --color "$color"
+              }
             }
             
             # 为不同的标签设置不同的颜色
-            create_label_if_not_exists "AC" "0e8a16"
-            create_label_if_not_exists "MLE" "1e90ff"
-            create_label_if_not_exists "WA" "d93f0b"
-            create_label_if_not_exists "TLE" "ff69b4"
-            create_label_if_not_exists "CE" "808080"
+            Create-LabelIfNotExists "AC" "0e8a16"
+            Create-LabelIfNotExists "MLE" "1e90ff"
+            Create-LabelIfNotExists "WA" "d93f0b"
+            Create-LabelIfNotExists "TLE" "ff69b4"
+            Create-LabelIfNotExists "CE" "808080"
             
             # 添加标签
             gh issue edit ${{ github.event.issue.number }} --add-label "$STATUS"
             
             gh issue close ${{ github.event.issue.number }}
-          fi
+          }
