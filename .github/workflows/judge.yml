@@ -83,7 +83,7 @@ jobs:
               with open('judge_result.txt', 'w') as f:
                   f.write('CHEATING')
           else:
-              with open('solution.source', 'wb') as f:
+              with open('solution.cpp', 'wb') as f:
                   f.write(code.encode('utf-8'))
               with open('lang.txt', 'w') as f:
                   f.write(lang.strip())
@@ -116,7 +116,7 @@ jobs:
             fi
             LANG=$(cat lang.txt)
             # 运行评测
-            RESULT=$(python3 judge.py private.pem "problems/$ID" solution.source "$LANG")
+            RESULT=$(python3 judge.py private.pem "problems/$ID" solution.cpp "$LANG")
             
             # 回复结果
             gh issue comment ${{ github.event.issue.number }} --body "$RESULT"
