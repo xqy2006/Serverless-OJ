@@ -58,15 +58,25 @@ def compile_solution(solution_file, lang_type):
         return compile_result.returncode == 0, exe_path
     
     elif lang_type == "java":
-        with open(solution_file, 'r') as f:
-            content = f.read()
-            class_match = re.search(r'public\s+class\s+(\w+)', content)
-            if not class_match:
-                return False, None
-            class_name = class_match.group(1)
-        
-        compile_result = subprocess.run(['javac', solution_file])
-        return compile_result.returncode == 0, class_name
+        # 创建一个临时的.java文件
+        temp_java_file = 'Solution.java'
+        try:
+            # 读取源代码
+            with open(solution_file, 'r') as f:
+                source_code = f.read()
+            
+            # 修改类名为Solution（如果需要）
+            source_code = re.sub(r'public\s+class\s+\w+', 'public class Solution', source_code)
+            
+            # 写入新的.java文件
+            with open(temp_java_file, 'w') as f:
+                f.write(source_code)
+            
+            compile_result = subprocess.run(['javac', temp_java_file])
+            return compile_result.returncode == 0, 'Solution'
+        except Exception as e:
+            print(f"Java compilation error: {str(e)}")
+            return False, None
     
     elif lang_type == "python":
         try:
