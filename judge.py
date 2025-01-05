@@ -52,7 +52,7 @@ def compile_solution(solution_file, lang_type):
     if lang_type == "cpp" or lang_type == "c":
         exe_path = './solution'
         compile_result = subprocess.run(
-            ['gcc', solution_file, '-o', exe_path, '-O2', '-Wall', '-fno-asm', 
+            ['gcc', solution_file, '-o', exe_path, '-O0', '-Wall', '-fno-asm', 
              '-lstdc++', '-lm', '-march=native', '-D_IONBF', '-Wno-unused-result']
         )
         return compile_result.returncode == 0, exe_path
