@@ -1,12 +1,12 @@
 {
   "id": 1,
-  "title": "学社的财务难题",
+  "title": "排序",
   "memoryLimit": 256,
   "timeLimit": 1000,
-  "difficulty": "hard",
+  "difficulty": "medium",
   "author": "xqy2006",
   "specialJudge": {
-        "enabled": false,
-        "language": "cpp"
+    "enabled": false,
+    "language": "cpp"
   }
 }
